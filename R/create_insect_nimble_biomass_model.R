@@ -146,7 +146,7 @@
 #' exponential distance-based covariance function.
 #'
 #' When a cyclic cubic spline is requested, the supplied penalty matrix is
-#' decomposed as \(S = V D V^\top\). Eigenvectors associated with positive
+#' decomposed as \(S = V D V^{T}\). Eigenvectors associated with positive
 #' eigenvalues are retained, and the basis is rotated into this eigenbasis.
 #' The corresponding spline coefficients receive independent normal priors
 #' whose precisions are the product of a response-specific smoothing precision
@@ -191,80 +191,80 @@
 #' @export
 create_insect_nimble_model <- function(
 
-    modelCovs,
+  modelCovs,
 
-    response = "biomass",
+  response = "biomass",
 
-    # --------------------------------------------------------------------------
-    # Response distributions
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Response distributions
+  # --------------------------------------------------------------------------
 
-    biomass_distribution = "normal",
+  biomass_distribution = "normal",
 
-    diversity_distribution = "poisson",
+  diversity_distribution = "poisson",
 
-    # --------------------------------------------------------------------------
-    # Covariate specification
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Covariate specification
+  # --------------------------------------------------------------------------
 
-    covariate_types = NULL,
+  covariate_types = NULL,
 
-    # --------------------------------------------------------------------------
-    # Random effects
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Random effects
+  # --------------------------------------------------------------------------
 
-    random_year = FALSE,
+  random_year = FALSE,
 
-    random_locality = FALSE,
+  random_locality = FALSE,
 
-    random_replicate = FALSE,
+  random_replicate = FALSE,
 
-    # --------------------------------------------------------------------------
-    # Temporal effect
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Temporal effect
+  # --------------------------------------------------------------------------
 
-    temporal_effect = c(
-      "none",
-      "linear",
-      "cubic_cyclic"
-    ),
+  temporal_effect = c(
+    "none",
+    "linear",
+    "cubic_cyclic"
+  ),
 
-    temporal_basis = NULL,
+  temporal_basis = NULL,
 
-    temporal_penalty = NULL,
+  temporal_penalty = NULL,
 
-    temporal_penalty_tol = 1e-8,
+  temporal_penalty_tol = 1e-8,
 
-    # --------------------------------------------------------------------------
-    # Spatial effect
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Spatial effect
+  # --------------------------------------------------------------------------
 
-    spatial_effect = c(
-      "none",
-      "coordinates",
-      "autocorrelation"
-    ),
+  spatial_effect = c(
+    "none",
+    "coordinates",
+    "autocorrelation"
+  ),
 
-    spatial_shared = TRUE,
+  spatial_shared = TRUE,
 
-    # --------------------------------------------------------------------------
-    # Spatial priors
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Spatial priors
+  # --------------------------------------------------------------------------
 
-    spatial_range_prior = c(
-      1000,
-      500000
-    ),
+  spatial_range_prior = c(
+    1000,
+    500000
+  ),
 
-    spatial_sigma_prior = 1,
+  spatial_sigma_prior = 1,
 
-    # --------------------------------------------------------------------------
-    # Output
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Output
+  # --------------------------------------------------------------------------
 
-    output_dir = temp_dir,
+  output_dir = temp_dir,
 
-    model_name = "biomass_diversity_model_nimble"
+  model_name = "biomass_diversity_model_nimble"
 
 ) {
 
@@ -311,6 +311,19 @@ create_insect_nimble_model <- function(
     temporal_effect
   )
 
+  # Validate the relative eigenvalue threshold used to identify
+  # the positive-eigenvalue subspace of the spline penalty.
+  if (
+    !is.numeric(temporal_penalty_tol) ||
+    length(temporal_penalty_tol) != 1L ||
+    !is.finite(temporal_penalty_tol) ||
+    temporal_penalty_tol <= 0
+  ) {
+    stop(
+      "'temporal_penalty_tol' must be a single positive, finite number.",
+      call. = FALSE
+    )
+  }
 
   # ----------------------------------------------------------------------------
   # Validate and prepare cubic cyclic spline
@@ -756,30 +769,30 @@ beta_latitude_spatial ~ dnorm(
     )
 
 
-    if (include_biomass) {
+if (include_biomass) {
 
-      biomass_spatial_terms <- c(
-        biomass_spatial_terms,
+  biomass_spatial_terms <- c(
+    biomass_spatial_terms,
 
-        "beta_longitude_spatial * longitude[i]",
+    "beta_longitude_spatial * longitude[i]",
 
-        "beta_latitude_spatial * latitude[i]"
-      )
+    "beta_latitude_spatial * latitude[i]"
+  )
 
-    }
+}
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      diversity_spatial_terms <- c(
-        diversity_spatial_terms,
+  diversity_spatial_terms <- c(
+    diversity_spatial_terms,
 
-        "beta_longitude_spatial * longitude[i]",
+    "beta_longitude_spatial * longitude[i]",
 
-        "beta_latitude_spatial * latitude[i]"
-      )
+    "beta_latitude_spatial * latitude[i]"
+  )
 
-    }
+}
 
   }
 
@@ -854,42 +867,42 @@ lambda_spatial_diversity ~ dnorm(
       )
 
 
-      if (include_biomass) {
+if (include_biomass) {
 
-        biomass_spatial_terms <- c(
-          biomass_spatial_terms,
+  biomass_spatial_terms <- c(
+    biomass_spatial_terms,
 
-          "lambda_spatial_biomass * spatial_effect[spatial_id[i]]"
-        )
+    "lambda_spatial_biomass * spatial_effect[spatial_id[i]]"
+  )
 
-      }
+}
 
 
-      if (include_diversity) {
+if (include_diversity) {
 
-        diversity_spatial_terms <- c(
-          diversity_spatial_terms,
+  diversity_spatial_terms <- c(
+    diversity_spatial_terms,
 
-          "lambda_spatial_diversity * spatial_effect[spatial_id[i]]"
-        )
+    "lambda_spatial_diversity * spatial_effect[spatial_id[i]]"
+  )
 
-      }
+}
 
     }
 
 
-    # --------------------------------------------------------------------------
-    # Separate spatial processes
-    # --------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Separate spatial processes
+  # --------------------------------------------------------------------------
 
-    if (!spatial_shared) {
+  if (!spatial_shared) {
 
-      if (include_biomass) {
+    if (include_biomass) {
 
-        spatial_code <- c(
-          spatial_code,
+      spatial_code <- c(
+        spatial_code,
 
-          '
+        '
 # =============================================================================
 # Biomass latent spatial autocorrelation
 # =============================================================================
@@ -936,24 +949,24 @@ lambda_spatial_biomass ~ dnorm(
   0.001
 )
 '
-        )
+      )
 
 
-        biomass_spatial_terms <- c(
-          biomass_spatial_terms,
+biomass_spatial_terms <- c(
+  biomass_spatial_terms,
 
-          "lambda_spatial_biomass * spatial_effect_biomass[spatial_id[i]]"
-        )
+  "lambda_spatial_biomass * spatial_effect_biomass[spatial_id[i]]"
+)
 
-      }
+    }
 
 
-      if (include_diversity) {
+  if (include_diversity) {
 
-        spatial_code <- c(
-          spatial_code,
+    spatial_code <- c(
+      spatial_code,
 
-          '
+      '
 # =============================================================================
 # Diversity latent spatial autocorrelation
 # =============================================================================
@@ -1000,44 +1013,44 @@ lambda_spatial_diversity ~ dnorm(
   0.001
 )
 '
-        )
+    )
 
 
-        diversity_spatial_terms <- c(
-          diversity_spatial_terms,
+diversity_spatial_terms <- c(
+  diversity_spatial_terms,
 
-          "lambda_spatial_diversity * spatial_effect_diversity[spatial_id[i]]"
-        )
+  "lambda_spatial_diversity * spatial_effect_diversity[spatial_id[i]]"
+)
 
-      }
+  }
 
-    }
+  }
 
   }
 
 
-  # ============================================================================
-  # 14. Categorical covariates as random effects
-  # ============================================================================
+# ============================================================================
+# 14. Categorical covariates as random effects
+# ============================================================================
 
-  if (length(categorical_covariates) > 0) {
+if (length(categorical_covariates) > 0) {
 
-    for (cov in categorical_covariates) {
+  for (cov in categorical_covariates) {
 
-      cov_clean <- make.names(cov)
+    cov_clean <- make.names(cov)
 
 
-      # ------------------------------------------------------------------------
-      # Biomass categorical random effect
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Biomass categorical random effect
+    # ------------------------------------------------------------------------
 
-      if (include_biomass) {
+    if (include_biomass) {
 
-        random_effect_code <- c(
-          random_effect_code,
+      random_effect_code <- c(
+        random_effect_code,
 
-          paste0(
-'
+        paste0(
+          '
 # =============================================================================
 # Biomass random effect: ', cov, '
 # =============================================================================
@@ -1063,35 +1076,35 @@ tau_', cov_clean, '_biomass ~ T(
 sigma_', cov_clean, '_biomass <-
   1 / sqrt(tau_', cov_clean, '_biomass)
 '
-          )
         )
+      )
 
 
-        biomass_random_terms <- c(
-          biomass_random_terms,
+biomass_random_terms <- c(
+  biomass_random_terms,
 
-          paste0(
-            cov_clean,
-            "_effect_biomass[",
-            cov_clean,
-            "_id[i]]"
-          )
-        )
+  paste0(
+    cov_clean,
+    "_effect_biomass[",
+    cov_clean,
+    "_id[i]]"
+  )
+)
 
-      }
+    }
 
 
-      # ------------------------------------------------------------------------
-      # Diversity categorical random effect
-      # ------------------------------------------------------------------------
+  # ------------------------------------------------------------------------
+  # Diversity categorical random effect
+  # ------------------------------------------------------------------------
 
-      if (include_diversity) {
+  if (include_diversity) {
 
-        random_effect_code <- c(
-          random_effect_code,
+    random_effect_code <- c(
+      random_effect_code,
 
-          paste0(
-'
+      paste0(
+        '
 # =============================================================================
 # Diversity random effect: ', cov, '
 # =============================================================================
@@ -1117,40 +1130,40 @@ tau_', cov_clean, '_diversity ~ T(
 sigma_', cov_clean, '_diversity <-
   1 / sqrt(tau_', cov_clean, '_diversity)
 '
-          )
-        )
+      )
+    )
 
 
-        diversity_random_terms <- c(
-          diversity_random_terms,
+diversity_random_terms <- c(
+  diversity_random_terms,
 
-          paste0(
-            cov_clean,
-            "_effect_diversity[",
-            cov_clean,
-            "_id[i]]"
-          )
-        )
-
-      }
-
-    }
+  paste0(
+    cov_clean,
+    "_effect_diversity[",
+    cov_clean,
+    "_id[i]]"
+  )
+)
 
   }
 
+  }
 
-  # ============================================================================
-  # 15. Year random effect
-  # ============================================================================
+}
 
-  if (random_year) {
 
-    if (include_biomass) {
+# ============================================================================
+# 15. Year random effect
+# ============================================================================
 
-      random_effect_code <- c(
-        random_effect_code,
+if (random_year) {
 
-        '
+  if (include_biomass) {
+
+    random_effect_code <- c(
+      random_effect_code,
+
+      '
 # =============================================================================
 # Biomass year random effect
 # =============================================================================
@@ -1176,24 +1189,24 @@ tau_year_biomass ~ T(
 sigma_year_biomass <-
   1 / sqrt(tau_year_biomass)
 '
-      )
+    )
 
 
-      biomass_random_terms <- c(
-        biomass_random_terms,
+biomass_random_terms <- c(
+  biomass_random_terms,
 
-        "year_effect_biomass[year_id[i]]"
-      )
+  "year_effect_biomass[year_id[i]]"
+)
 
-    }
+  }
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      random_effect_code <- c(
-        random_effect_code,
+  random_effect_code <- c(
+    random_effect_code,
 
-        '
+    '
 # =============================================================================
 # Diversity year random effect
 # =============================================================================
@@ -1219,32 +1232,32 @@ tau_year_diversity ~ T(
 sigma_year_diversity <-
   1 / sqrt(tau_year_diversity)
 '
-      )
+  )
 
 
-      diversity_random_terms <- c(
-        diversity_random_terms,
+diversity_random_terms <- c(
+  diversity_random_terms,
 
-        "year_effect_diversity[year_id[i]]"
-      )
+  "year_effect_diversity[year_id[i]]"
+)
 
-    }
+}
 
-  }
+}
 
 
-  # ============================================================================
-  # 16. Locality random effect
-  # ============================================================================
+# ============================================================================
+# 16. Locality random effect
+# ============================================================================
 
-  if (random_locality) {
+if (random_locality) {
 
-    if (include_biomass) {
+  if (include_biomass) {
 
-      random_effect_code <- c(
-        random_effect_code,
+    random_effect_code <- c(
+      random_effect_code,
 
-        '
+      '
 # =============================================================================
 # Biomass locality random effect
 # =============================================================================
@@ -1270,24 +1283,24 @@ tau_locality_biomass ~ T(
 sigma_locality_biomass <-
   1 / sqrt(tau_locality_biomass)
 '
-      )
+    )
 
 
-      biomass_random_terms <- c(
-        biomass_random_terms,
+biomass_random_terms <- c(
+  biomass_random_terms,
 
-        "locality_effect_biomass[locality_id[i]]"
-      )
+  "locality_effect_biomass[locality_id[i]]"
+)
 
-    }
+  }
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      random_effect_code <- c(
-        random_effect_code,
+  random_effect_code <- c(
+    random_effect_code,
 
-        '
+    '
 # =============================================================================
 # Diversity locality random effect
 # =============================================================================
@@ -1313,32 +1326,32 @@ tau_locality_diversity ~ T(
 sigma_locality_diversity <-
   1 / sqrt(tau_locality_diversity)
 '
-      )
+  )
 
 
-      diversity_random_terms <- c(
-        diversity_random_terms,
+diversity_random_terms <- c(
+  diversity_random_terms,
 
-        "locality_effect_diversity[locality_id[i]]"
-      )
+  "locality_effect_diversity[locality_id[i]]"
+)
 
-    }
+}
 
-  }
+}
 
 
-  # ============================================================================
-  # 17. Replicate random effect
-  # ============================================================================
+# ============================================================================
+# 17. Replicate random effect
+# ============================================================================
 
-  if (random_replicate) {
+if (random_replicate) {
 
-    if (include_biomass) {
+  if (include_biomass) {
 
-      random_effect_code <- c(
-        random_effect_code,
+    random_effect_code <- c(
+      random_effect_code,
 
-        '
+      '
 # =============================================================================
 # Biomass replicate random effect
 # =============================================================================
@@ -1364,24 +1377,24 @@ tau_replicate_biomass ~ T(
 sigma_replicate_biomass <-
   1 / sqrt(tau_replicate_biomass)
 '
-      )
+    )
 
 
-      biomass_random_terms <- c(
-        biomass_random_terms,
+biomass_random_terms <- c(
+  biomass_random_terms,
 
-        "replicate_effect_biomass[replicate_id[i]]"
-      )
+  "replicate_effect_biomass[replicate_id[i]]"
+)
 
-    }
+  }
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      random_effect_code <- c(
-        random_effect_code,
+  random_effect_code <- c(
+    random_effect_code,
 
-        '
+    '
 # =============================================================================
 # Diversity replicate random effect
 # =============================================================================
@@ -1407,43 +1420,43 @@ tau_replicate_diversity ~ T(
 sigma_replicate_diversity <-
   1 / sqrt(tau_replicate_diversity)
 '
-      )
+  )
 
 
-      diversity_random_terms <- c(
-        diversity_random_terms,
+diversity_random_terms <- c(
+  diversity_random_terms,
 
-        "replicate_effect_diversity[replicate_id[i]]"
-      )
+  "replicate_effect_diversity[replicate_id[i]]"
+)
 
-    }
+}
 
-  }
-
-
-  # ============================================================================
-  # 18. Temporal effect
-  # ============================================================================
-
-  temporal_code <- character(0)
-
-  biomass_temporal_term <- character(0)
-
-  diversity_temporal_term <- character(0)
+}
 
 
-  # ----------------------------------------------------------------------------
-  # Linear temporal effect
-  # ----------------------------------------------------------------------------
+# ============================================================================
+# 18. Temporal effect
+# ============================================================================
 
-  if (temporal_effect == "linear") {
+temporal_code <- character(0)
 
-    if (include_biomass) {
+biomass_temporal_term <- character(0)
 
-      temporal_code <- c(
-        temporal_code,
+diversity_temporal_term <- character(0)
 
-        '
+
+# ----------------------------------------------------------------------------
+# Linear temporal effect
+# ----------------------------------------------------------------------------
+
+if (temporal_effect == "linear") {
+
+  if (include_biomass) {
+
+    temporal_code <- c(
+      temporal_code,
+
+      '
 # =============================================================================
 # Biomass linear temporal effect
 # =============================================================================
@@ -1453,24 +1466,24 @@ beta_time_biomass ~ dnorm(
   0.001
 )
 '
-      )
+    )
 
 
-      biomass_temporal_term <- c(
-        biomass_temporal_term,
+biomass_temporal_term <- c(
+  biomass_temporal_term,
 
-        "beta_time_biomass * temporal[i]"
-      )
+  "beta_time_biomass * temporal[i]"
+)
 
-    }
+  }
 
 
-    if (include_diversity) {
+  if (include_diversity) {
 
-      temporal_code <- c(
-        temporal_code,
+    temporal_code <- c(
+      temporal_code,
 
-        '
+      '
 # =============================================================================
 # Diversity linear temporal effect
 # =============================================================================
@@ -1480,32 +1493,32 @@ beta_time_diversity ~ dnorm(
   0.001
 )
 '
-      )
+    )
 
 
-      diversity_temporal_term <- c(
-        diversity_temporal_term,
+diversity_temporal_term <- c(
+  diversity_temporal_term,
 
-        "beta_time_diversity * temporal[i]"
-      )
-
-    }
+  "beta_time_diversity * temporal[i]"
+)
 
   }
 
+}
 
-  # ----------------------------------------------------------------------------
-  # Penalized cubic cyclic spline
-  # ----------------------------------------------------------------------------
 
-  if (temporal_effect == "cubic_cyclic") {
+# ----------------------------------------------------------------------------
+# Penalized cubic cyclic spline
+# ----------------------------------------------------------------------------
 
-    if (include_biomass) {
+if (temporal_effect == "cubic_cyclic") {
 
-      temporal_code <- c(
-        temporal_code,
+  if (include_biomass) {
 
-        '
+    temporal_code <- c(
+      temporal_code,
+
+      '
 # =============================================================================
 # Penalized cubic cyclic spline: biomass
 #
@@ -1533,30 +1546,30 @@ temporal_tau_biomass ~ dgamma(
   1
 )
 '
-      )
+    )
 
 
-      biomass_temporal_term <- c(
-        biomass_temporal_term,
+biomass_temporal_term <- c(
+  biomass_temporal_term,
 
-        paste0(
-          "inprod(",
-          "beta_time_biomass[1:n_temporal_basis], ",
-          "temporal_basis_penalized[",
-          "i, 1:n_temporal_basis",
-          "])"
-        )
-      )
+  paste0(
+    "inprod(",
+    "beta_time_biomass[1:n_temporal_basis], ",
+    "temporal_basis_penalized[",
+    "i, 1:n_temporal_basis",
+    "])"
+  )
+)
 
-    }
+  }
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      temporal_code <- c(
-        temporal_code,
+  temporal_code <- c(
+    temporal_code,
 
-        '
+    '
 # =============================================================================
 # Penalized cubic cyclic spline: diversity
 # =============================================================================
@@ -1576,85 +1589,85 @@ temporal_tau_diversity ~ dgamma(
   1
 )
 '
-      )
-
-
-      diversity_temporal_term <- c(
-        diversity_temporal_term,
-
-        paste0(
-          "inprod(",
-          "beta_time_diversity[1:n_temporal_basis], ",
-          "temporal_basis_penalized[",
-          "i, 1:n_temporal_basis",
-          "])"
-        )
-      )
-
-    }
-
-  }
-
-
-  # ============================================================================
-  # 19. Biomass linear predictor
-  # ============================================================================
-
-  biomass_mean_terms <- c(
-    "alpha_biomass",
-    fixed_effect_biomass,
-    biomass_random_terms,
-    biomass_spatial_terms,
-    biomass_temporal_term
-  )
-
-  biomass_mean_terms <- biomass_mean_terms[
-    !is.na(biomass_mean_terms) &
-      nzchar(biomass_mean_terms)
-  ]
-
-  biomass_mean_expression <- paste(
-    biomass_mean_terms,
-    collapse = " + "
   )
 
 
-  # ============================================================================
-  # 20. Diversity linear predictor
-  # ============================================================================
+diversity_temporal_term <- c(
+  diversity_temporal_term,
 
-  diversity_mean_terms <- c(
-    "alpha_diversity",
-    fixed_effect_diversity,
-    diversity_random_terms,
-    diversity_spatial_terms,
-    diversity_temporal_term
+  paste0(
+    "inprod(",
+    "beta_time_diversity[1:n_temporal_basis], ",
+    "temporal_basis_penalized[",
+    "i, 1:n_temporal_basis",
+    "])"
   )
+)
 
-  diversity_mean_terms <- diversity_mean_terms[
-    !is.na(diversity_mean_terms) &
-      nzchar(diversity_mean_terms)
-  ]
+}
 
-  diversity_mean_expression <- paste(
-    diversity_mean_terms,
-    collapse = " + "
-  )
+}
 
 
-  # ============================================================================
-  # 21. Biomass observation model
-  # ============================================================================
+# ============================================================================
+# 19. Biomass linear predictor
+# ============================================================================
 
-  biomass_code <- ""
+biomass_mean_terms <- c(
+  "alpha_biomass",
+  fixed_effect_biomass,
+  biomass_random_terms,
+  biomass_spatial_terms,
+  biomass_temporal_term
+)
 
-  if (include_biomass) {
+biomass_mean_terms <- biomass_mean_terms[
+  !is.na(biomass_mean_terms) &
+    nzchar(biomass_mean_terms)
+]
 
-    if (biomass_distribution == "normal") {
+biomass_mean_expression <- paste(
+  biomass_mean_terms,
+  collapse = " + "
+)
 
-      biomass_code <- paste0(
 
-'
+# ============================================================================
+# 20. Diversity linear predictor
+# ============================================================================
+
+diversity_mean_terms <- c(
+  "alpha_diversity",
+  fixed_effect_diversity,
+  diversity_random_terms,
+  diversity_spatial_terms,
+  diversity_temporal_term
+)
+
+diversity_mean_terms <- diversity_mean_terms[
+  !is.na(diversity_mean_terms) &
+    nzchar(diversity_mean_terms)
+]
+
+diversity_mean_expression <- paste(
+  diversity_mean_terms,
+  collapse = " + "
+)
+
+
+# ============================================================================
+# 21. Biomass observation model
+# ============================================================================
+
+biomass_code <- ""
+
+if (include_biomass) {
+
+  if (biomass_distribution == "normal") {
+
+    biomass_code <- paste0(
+
+      '
 # =============================================================================
 # Biomass observation model
 # Distribution: Normal
@@ -1668,8 +1681,8 @@ for (i in 1:N) {
   )
 
   mu_biomass[i] <- ',
-        biomass_mean_expression,
-'
+      biomass_mean_expression,
+      '
 
 }
 
@@ -1699,16 +1712,16 @@ sigma_biomass <-
   1 / sqrt(tau_biomass)
 
 '
-      )
+    )
 
-    }
+  }
 
 
-    if (biomass_distribution == "lognormal") {
+if (biomass_distribution == "lognormal") {
 
-      biomass_code <- paste0(
+  biomass_code <- paste0(
 
-'
+    '
 # =============================================================================
 # Biomass observation model
 # Distribution: Log-normal
@@ -1722,8 +1735,8 @@ for (i in 1:N) {
   )
 
   mu_log_biomass[i] <- ',
-        biomass_mean_expression,
-'
+    biomass_mean_expression,
+    '
 
 }
 
@@ -1753,26 +1766,26 @@ sigma_biomass <-
   1 / sqrt(tau_biomass)
 
 '
-      )
+  )
 
-    }
+}
 
-  }
+}
 
 
-  # ============================================================================
-  # 22. Diversity observation model
-  # ============================================================================
+# ============================================================================
+# 22. Diversity observation model
+# ============================================================================
 
-  diversity_code <- ""
+diversity_code <- ""
 
-  if (include_diversity) {
+if (include_diversity) {
 
-    if (diversity_distribution == "poisson") {
+  if (diversity_distribution == "poisson") {
 
-      diversity_code <- paste0(
+    diversity_code <- paste0(
 
-'
+      '
 # =============================================================================
 # Diversity observation model
 # Distribution: Poisson
@@ -1785,8 +1798,8 @@ for (i in 1:N) {
   )
 
   log(lambda_diversity[i]) <- ',
-        diversity_mean_expression,
-'
+      diversity_mean_expression,
+      '
 
 }
 
@@ -1800,16 +1813,16 @@ alpha_diversity ~ dnorm(
 )
 
 '
-      )
+    )
 
-    }
+  }
 
 
-    if (diversity_distribution == "negative_binomial") {
+if (diversity_distribution == "negative_binomial") {
 
-      diversity_code <- paste0(
+  diversity_code <- paste0(
 
-'
+    '
 # =============================================================================
 # Diversity observation model
 # Distribution: Negative binomial
@@ -1827,8 +1840,8 @@ for (i in 1:N) {
     (size_diversity + mu_diversity[i])
 
   log(mu_diversity[i]) <- ',
-        diversity_mean_expression,
-'
+    diversity_mean_expression,
+    '
 
 }
 
@@ -1851,27 +1864,27 @@ size_diversity ~ dgamma(
 )
 
 '
-      )
+  )
 
-    }
+}
 
-  }
+}
 
 
-  # ============================================================================
-  # 23. Fixed-effect priors
-  # ============================================================================
+# ============================================================================
+# 23. Fixed-effect priors
+# ============================================================================
 
-  beta_code <- character(0)
+beta_code <- character(0)
 
-  if (n_continuous > 0) {
+if (n_continuous > 0) {
 
-    if (include_biomass) {
+  if (include_biomass) {
 
-      beta_code <- c(
-        beta_code,
+    beta_code <- c(
+      beta_code,
 
-        '
+      '
 # =============================================================================
 # Biomass continuous covariate effects
 # =============================================================================
@@ -1885,17 +1898,17 @@ for (j in 1:p) {
 
 }
 '
-      )
+    )
 
-    }
+  }
 
 
-    if (include_diversity) {
+if (include_diversity) {
 
-      beta_code <- c(
-        beta_code,
+  beta_code <- c(
+    beta_code,
 
-        '
+    '
 # =============================================================================
 # Diversity continuous covariate effects
 # =============================================================================
@@ -1909,53 +1922,53 @@ for (j in 1:p) {
 
 }
 '
-      )
+  )
 
-    }
+}
 
-  }
+}
 
 
-  # ============================================================================
-  # 24. Spatial hyperparameter constants
-  # ============================================================================
+# ============================================================================
+# 24. Spatial hyperparameter constants
+# ============================================================================
 
-  spatial_hyperparameter_code <- character(0)
+spatial_hyperparameter_code <- character(0)
 
-  if (spatial_effect == "autocorrelation") {
+if (spatial_effect == "autocorrelation") {
 
-    spatial_hyperparameter_code <- paste0(
+  spatial_hyperparameter_code <- paste0(
 
-'
+    '
 # =============================================================================
 # Spatial prior hyperparameters
 # =============================================================================
 
 spatial_range_lower <- ',
-      spatial_range_prior[1],
-'
+    spatial_range_prior[1],
+    '
 
 spatial_range_upper <- ',
-      spatial_range_prior[2],
-'
+    spatial_range_prior[2],
+    '
 
 spatial_sigma_precision <- ',
-      1 / spatial_sigma_prior^2,
-'
+    1 / spatial_sigma_prior^2,
+    '
 
 '
-    )
+  )
 
-  }
+}
 
 
-  # ============================================================================
-  # 25. Construct complete NIMBLE model
-  # ============================================================================
+# ============================================================================
+# 25. Construct complete NIMBLE model
+# ============================================================================
 
-  nimble_model <- paste0(
+nimble_model <- paste0(
 
-'
+  '
 # =============================================================================
 # NIMBLE model: insect biomass and diversity
 # =============================================================================
@@ -1980,27 +1993,27 @@ spatial_sigma_precision <- ',
 
 # Continuous covariates:
 #   ',
-    ifelse(
-      length(continuous_covariates) > 0,
-      paste(
-        continuous_covariates,
-        collapse = ", "
-      ),
-      "None"
+  ifelse(
+    length(continuous_covariates) > 0,
+    paste(
+      continuous_covariates,
+      collapse = ", "
     ),
-'
+    "None"
+  ),
+  '
 
 # Categorical covariates:
 #   ',
-    ifelse(
-      length(categorical_covariates) > 0,
-      paste(
-        categorical_covariates,
-        collapse = ", "
-      ),
-      "None"
+  ifelse(
+    length(categorical_covariates) > 0,
+    paste(
+      categorical_covariates,
+      collapse = ", "
     ),
-'
+    "None"
+  ),
+  '
 
 # =============================================================================
 
@@ -2009,185 +2022,185 @@ library(nimble)
 biomass_diversity_model <- nimbleCode({
 
 ',
-    spatial_hyperparameter_code,
-    "\n",
+  spatial_hyperparameter_code,
+  "\n",
 
-    biomass_code,
-    diversity_code,
-    "\n",
+  biomass_code,
+  diversity_code,
+  "\n",
 
-    paste(
-      beta_code,
-      collapse = "\n"
-    ),
-    "\n",
+  paste(
+    beta_code,
+    collapse = "\n"
+  ),
+  "\n",
 
-    paste(
-      random_effect_code,
-      collapse = "\n"
-    ),
-    "\n",
+  paste(
+    random_effect_code,
+    collapse = "\n"
+  ),
+  "\n",
 
-    paste(
-      spatial_code,
-      collapse = "\n"
-    ),
-    "\n",
+  paste(
+    spatial_code,
+    collapse = "\n"
+  ),
+  "\n",
 
-    paste(
-      temporal_code,
-      collapse = "\n"
-    ),
+  paste(
+    temporal_code,
+    collapse = "\n"
+  ),
 
-'
+  '
 })
 
 '
+)
+
+
+# ============================================================================
+# 26. Create output directory
+# ============================================================================
+
+dir.create(
+  output_dir,
+  recursive = TRUE,
+  showWarnings = FALSE
+)
+
+
+# ============================================================================
+# 27. Model output file
+# ============================================================================
+
+nimble_file <- file.path(
+  output_dir,
+  paste0(
+    model_name,
+    ".R"
   )
+)
 
 
-  # ============================================================================
-  # 26. Create output directory
-  # ============================================================================
+# ============================================================================
+# 28. Write NIMBLE model to file
+# ============================================================================
 
-  dir.create(
-    output_dir,
-    recursive = TRUE,
-    showWarnings = FALSE
-  )
-
-
-  # ============================================================================
-  # 27. Model output file
-  # ============================================================================
-
-  nimble_file <- file.path(
-    output_dir,
-    paste0(
-      model_name,
-      ".R"
-    )
-  )
+writeLines(
+  nimble_model,
+  con = nimble_file
+)
 
 
-  # ============================================================================
-  # 28. Write NIMBLE model to file
-  # ============================================================================
+# ============================================================================
+# 29. Return model information
+# ============================================================================
 
-  writeLines(
-    nimble_model,
-    con = nimble_file
-  )
+invisible(
+  list(
 
+    # ------------------------------------------------------------------------
+    # Generated model
+    # ------------------------------------------------------------------------
 
-  # ============================================================================
-  # 29. Return model information
-  # ============================================================================
+    model = nimble_model,
 
-  invisible(
-    list(
-
-      # ------------------------------------------------------------------------
-      # Generated model
-      # ------------------------------------------------------------------------
-
-      model = nimble_model,
-
-      file = nimble_file,
+    file = nimble_file,
 
 
-      # ------------------------------------------------------------------------
-      # Response specification
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Response specification
+    # ------------------------------------------------------------------------
 
-      response = response,
-
-
-      # ------------------------------------------------------------------------
-      # Distribution specification
-      # ------------------------------------------------------------------------
-
-      biomass_distribution = biomass_distribution,
-
-      diversity_distribution = diversity_distribution,
+    response = response,
 
 
-      # ------------------------------------------------------------------------
-      # Covariates
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Distribution specification
+    # ------------------------------------------------------------------------
 
-      covariates = modelCovs,
+    biomass_distribution = biomass_distribution,
 
-      continuous_covariates = continuous_covariates,
-
-      categorical_covariates = categorical_covariates,
-
-      covariate_types = covariate_types,
+    diversity_distribution = diversity_distribution,
 
 
-      # ------------------------------------------------------------------------
-      # Random effects
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Covariates
+    # ------------------------------------------------------------------------
 
-      random_year = random_year,
+    covariates = modelCovs,
 
-      random_locality = random_locality,
+    continuous_covariates = continuous_covariates,
 
-      random_replicate = random_replicate,
+    categorical_covariates = categorical_covariates,
+
+    covariate_types = covariate_types,
 
 
-      # ------------------------------------------------------------------------
-      # Temporal effect
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Random effects
+    # ------------------------------------------------------------------------
 
-      temporal_effect = temporal_effect,
+    random_year = random_year,
 
-      temporal_basis = temporal_basis,
+    random_locality = random_locality,
 
-      temporal_penalty = temporal_penalty,
+    random_replicate = random_replicate,
 
-      temporal_basis_penalized = temporal_basis_penalized,
 
-      temporal_penalty_eigenvalues =
-        temporal_penalty_eigenvalues,
+    # ------------------------------------------------------------------------
+    # Temporal effect
+    # ------------------------------------------------------------------------
 
-      temporal_penalty_eigenvectors =
-        temporal_penalty_eigenvectors,
+    temporal_effect = temporal_effect,
 
-      temporal_penalty_tol =
-        temporal_penalty_tol,
+    temporal_basis = temporal_basis,
+
+    temporal_penalty = temporal_penalty,
+
+    temporal_basis_penalized = temporal_basis_penalized,
+
+    temporal_penalty_eigenvalues =
+      temporal_penalty_eigenvalues,
+
+    temporal_penalty_eigenvectors =
+      temporal_penalty_eigenvectors,
+
+    temporal_penalty_tol =
+      temporal_penalty_tol,
+
+    n_temporal_basis =
+      n_temporal_basis,
+
+    # These objects should be supplied as NIMBLE constants
+    temporal_constants = list(
 
       n_temporal_basis =
         n_temporal_basis,
 
-      # These objects should be supplied as NIMBLE constants
-      temporal_constants = list(
+      temporal_basis_penalized =
+        temporal_basis_penalized,
 
-        n_temporal_basis =
-          n_temporal_basis,
+      temporal_penalty_eigenvalues =
+        temporal_penalty_eigenvalues
 
-        temporal_basis_penalized =
-          temporal_basis_penalized,
-
-        temporal_penalty_eigenvalues =
-          temporal_penalty_eigenvalues
-
-      ),
+    ),
 
 
-      # ------------------------------------------------------------------------
-      # Spatial effect
-      # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+    # Spatial effect
+    # ------------------------------------------------------------------------
 
-      spatial_effect = spatial_effect,
+    spatial_effect = spatial_effect,
 
-      spatial_shared = spatial_shared,
+    spatial_shared = spatial_shared,
 
-      spatial_range_prior = spatial_range_prior,
+    spatial_range_prior = spatial_range_prior,
 
-      spatial_sigma_prior = spatial_sigma_prior
+    spatial_sigma_prior = spatial_sigma_prior
 
-    )
   )
+)
 
 }

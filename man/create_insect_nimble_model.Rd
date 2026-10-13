@@ -175,7 +175,7 @@ estimated precisions. Spatial autocorrelation is represented using an
 exponential distance-based covariance function.
 
 When a cyclic cubic spline is requested, the supplied penalty matrix is
-decomposed as \(S = V D V^\top\). Eigenvectors associated with positive
+decomposed as \(S = V D V^{T}\). Eigenvectors associated with positive
 eigenvalues are retained, and the basis is rotated into this eigenbasis.
 The corresponding spline coefficients receive independent normal priors
 whose precisions are the product of a response-specific smoothing precision

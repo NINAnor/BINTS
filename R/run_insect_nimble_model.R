@@ -1188,104 +1188,157 @@ if (temporal_effect != "none") {
 
     if (temporal_effect == "cubic_cyclic") {
 
-        if (!requireNamespace(
-            "mgcv",
-            quietly = TRUE
-        )) {
+      # --------------------------------------------------
+      # 1. Validate dependencies and inputs
+      # --------------------------------------------------
 
-            stop(
-                "Package 'mgcv' is required for ",
-                "temporal_effect = 'cubic_cyclic'.",
-                call. = FALSE
-            )
-
-        }
-
-        # IMPORTANT:
-        # Do NOT standardise temporal_data here.
-        #
-        # For a cyclic spline, the original temporal scale
-        # defines the cyclic boundary.
-        temporal_smooth_data <- data.frame(
-            temporal = as.numeric(
-                temporal_data
-            )
+      if (!requireNamespace("mgcv", quietly = TRUE)) {
+        stop(
+          "Package 'mgcv' is required for ",
+          "temporal_effect = 'cubic_cyclic'.",
+          call. = FALSE
         )
+      }
 
-        temporal_smooth_spec <- mgcv::s(
-            temporal,
-            bs = "cc",
-            k = temporal_basis_k
+      if (!is.numeric(temporal_data) ||
+          length(temporal_data) < 3L ||
+          any(!is.finite(temporal_data))) {
+        stop(
+          "'temporal_data' must be a numeric vector containing ",
+          "at least three finite observations.",
+          call. = FALSE
         )
+      }
 
-        # Explicit cyclic boundary.
-        temporal_knots <- list(
-            temporal = range(
-                temporal_smooth_data$temporal,
-                finite = TRUE
-            )
+      if (!is.numeric(temporal_basis_k) ||
+          length(temporal_basis_k) != 1L ||
+          !is.finite(temporal_basis_k) ||
+          temporal_basis_k < 3L ||
+          temporal_basis_k != as.integer(temporal_basis_k)) {
+        stop(
+          "'temporal_basis_k' must be a single integer >= 3.",
+          call. = FALSE
         )
+      }
 
-        temporal_smooth <- mgcv::smoothCon(
-            temporal_smooth_spec,
-            data = temporal_smooth_data,
-            knots = temporal_knots,
-            absorb.cons = FALSE,
-            scale.penalty = FALSE
-        )[[1]]
+      temporal_basis_k <- as.integer(temporal_basis_k)
 
-        # --------------------------------------------------
-        # Save the ORIGINAL mgcv basis and penalty.
-        #
-        # create_insect_nimble_model() will perform the
-        # eigen-decomposition and construct the penalised
-        # eigenbasis.
-        # --------------------------------------------------
+      # --------------------------------------------------
+      # 2. Preserve the original temporal scale
+      #
+      # Do not standardise temporal_data. The original
+      # scale defines the cyclic boundary conditions.
+      # --------------------------------------------------
 
-        temporal_basis <- temporal_smooth$X
+      temporal_smooth_data <- data.frame(
+        temporal = as.numeric(temporal_data)
+      )
 
-        temporal_penalty <- temporal_smooth$S[[1]]
+      temporal_boundary <- range(
+        temporal_smooth_data$temporal
+      )
 
-        if (!is.matrix(temporal_basis) ||
-            !is.numeric(temporal_basis)) {
+      if (length(temporal_boundary) != 2L ||
+          !all(is.finite(temporal_boundary)) ||
+          diff(temporal_boundary) <= 0) {
+        stop(
+          "The temporal data must span a non-zero finite range ",
+          "to construct a cyclic cubic spline.",
+          call. = FALSE
+        )
+      }
 
-            stop(
-                "Failed to construct a valid mgcv temporal basis.",
-                call. = FALSE
-            )
+      # --------------------------------------------------
+      # 3. Construct the cyclic cubic spline using mgcv
+      # --------------------------------------------------
 
-        }
+      temporal_smooth_spec <- mgcv::s(
+        temporal,
+        bs = "cc",
+        k = temporal_basis_k
+      )
 
-        if (!is.matrix(temporal_penalty) ||
-            !is.numeric(temporal_penalty)) {
+      temporal_knots <- list(
+        temporal = temporal_boundary
+      )
 
-            stop(
-                "Failed to construct a valid mgcv temporal penalty.",
-                call. = FALSE
-            )
+      temporal_smooth <- mgcv::smoothCon(
+        temporal_smooth_spec,
+        data = temporal_smooth_data,
+        knots = temporal_knots,
+        absorb.cons = FALSE,
+        scale.penalty = FALSE
+      )[[1L]]
 
-        }
+      # --------------------------------------------------
+      # 4. Extract the original basis and penalty
+      #
+      # The eigen-decomposition and projection onto the
+      # positive-eigenvalue subspace are performed by
+      # create_insect_nimble_model().
+      # --------------------------------------------------
 
-        if (any(!is.finite(temporal_basis)) ||
-            any(!is.finite(temporal_penalty))) {
+      temporal_basis <- temporal_smooth$X
+      temporal_penalty <- temporal_smooth$S[[1L]]
 
-            stop(
-                "The temporal basis or penalty contains ",
-                "non-finite values.",
-                call. = FALSE
-            )
+      # --------------------------------------------------
+      # 5. Validate the basis and penalty
+      # --------------------------------------------------
 
-        }
+      if (!is.matrix(temporal_basis) ||
+          !is.numeric(temporal_basis)) {
+        stop(
+          "Failed to construct a valid numeric mgcv temporal basis.",
+          call. = FALSE
+        )
+      }
 
+      if (!is.matrix(temporal_penalty) ||
+          !is.numeric(temporal_penalty)) {
+        stop(
+          "Failed to construct a valid numeric mgcv temporal penalty.",
+          call. = FALSE
+        )
+      }
+
+      if (nrow(temporal_basis) != length(temporal_data)) {
+        stop(
+          "The temporal basis row count does not match ",
+          "the length of 'temporal_data'.",
+          call. = FALSE
+        )
+      }
+
+      if (nrow(temporal_penalty) != ncol(temporal_basis) ||
+          ncol(temporal_penalty) != ncol(temporal_basis)) {
+        stop(
+          "The temporal penalty dimensions must match ",
+          "the number of columns in the temporal basis.",
+          call. = FALSE
+        )
+      }
+
+      if (any(!is.finite(temporal_basis)) ||
+          any(!is.finite(temporal_penalty))) {
+        stop(
+          "The temporal basis or penalty contains non-finite values.",
+          call. = FALSE
+        )
+      }
+
+      # Check penalty symmetry within numerical tolerance.
+      penalty_scale <- max(1, max(abs(temporal_penalty)))
+
+      if (max(abs(temporal_penalty - t(temporal_penalty))) >
+          sqrt(.Machine$double.eps) * penalty_scale) {
+        stop(
+          "The mgcv temporal penalty is not symmetric ",
+          "within numerical tolerance.",
+          call. = FALSE
+        )
+      }
     }
-
 }
-
-
-
-
-
-
     # ==========================================================
 
     # Identify continuous covariates
@@ -1467,6 +1520,37 @@ model_file <- create_insect_nimble_model(
 
 )
 
+
+    if (temporal_effect == "cubic_cyclic") {
+
+      temporal_basis_penalized <-
+        model_file$temporal_basis_penalized
+
+      temporal_penalty_eigenvalues <-
+        model_file$temporal_penalty_eigenvalues
+
+      n_temporal_basis <-
+        model_file$n_temporal_basis
+
+      if (is.null(temporal_basis_penalized)) {
+        stop(
+          "The model constructor did not return ",
+          "'temporal_basis_penalized'.",
+          call. = FALSE
+        )
+      }
+
+      if (!is.matrix(temporal_basis_penalized) ||
+          nrow(temporal_basis_penalized) != length(temporal_data) ||
+          ncol(temporal_basis_penalized) != n_temporal_basis ||
+          length(temporal_penalty_eigenvalues) != n_temporal_basis) {
+        stop(
+          "The projected temporal basis or its eigenvalues ",
+          "have inconsistent dimensions.",
+          call. = FALSE
+        )
+      }
+    }
 
 
 
