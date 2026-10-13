@@ -21,10 +21,22 @@
       "URL": "https://rstudio.github.io/renv/, https://github.com/rstudio/renv",
       "BugReports": "https://github.com/rstudio/renv/issues",
       "Imports": [
-        "utils"
+          "RPostgreSQL", 
+          "RPostgres", 
+          "odbc", 
+          "DBI", 
+          "rpostgis", 
+          "lubridate",
+          "nimble",
+          "NinaR",
+          "Norimon"
       ],
       "Suggests": [
         "BiocManager",
+        "sf",
+        "getPass",
+        "data.table",
+        "tidyr",
         "cli",
         "compiler",
         "covr",

@@ -1,16 +1,42 @@
 Package: BINTS
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Bayesian Breeding Bird and Insect Time Series Modelling 
 Version: 0.1.0
 Authors@R: c(
     person(
-      "Jane", "Doe",
-      email = "jane@example.com",
+      "Kwaku", "Peprah Adjei",
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: Provides tools for constructing and fitting Bayesian models of
+    insect biomass and diversity using NIMBLE. Supports normal and lognormal
+    biomass likelihoods, and normal, Poisson, and negative binomial diversity
+    likelihoods. Includes continuous covariates, categorical random effects,
+    year, locality, and replicate effects, linear and cubic cyclic temporal
+    effects, and spatial effects based on geographic coordinates or spatial
+    autocorrelation. Provides functions for preparing model data and
+    constants, generating initial values, constructing cyclic spline bases
+    and penalty matrices, and running Markov chain Monte Carlo estimation
+    with optional Widely Applicable Information Criterion calculation.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+Imports:
+    dplyr,
+    sf,
+    stats,
+    utils,
+    mgcv,
+    nimble
+Suggests:
+    devtools,
+    roxygen2,
+    RPostgreSQL,
+    RPostgres,
+    odbc,
+    DBI,
+    rpostgis,
+    ggplot2,
+    Norimon,
+    NinaR
+Config/roxygen2/version: 8.1.0
