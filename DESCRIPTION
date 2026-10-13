@@ -2,12 +2,13 @@ Package: BINTS
 Type: Package
 Title: Bayesian Breeding Bird and Insect Time Series Modelling 
 Version: 0.1.0
-Authors@R: c(
+Authors@R: 
     person(
-      "Kwaku", "Peprah Adjei",
+      given = "Kwaku Peprah",
+      family = "Adjei",
+      email = "kwaku.adjei@nina.no",
       role = c("aut", "cre")
     )
-  )
 Description: Provides tools for constructing and fitting Bayesian models of
     insect biomass and diversity using NIMBLE. Supports normal and lognormal
     biomass likelihoods, and normal, Poisson, and negative binomial diversity
