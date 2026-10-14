@@ -6,9 +6,9 @@
 \usage{
 create_insect_nimble_model(
   modelCovs,
-  response = "biomass",
-  biomass_distribution = "normal",
-  diversity_distribution = "poisson",
+  response = c("biomass", "diversity", "both"),
+  biomass_distribution = c("normal", "lognormal"),
+  diversity_distribution = c("poisson", "negative_binomial"),
   covariate_types = NULL,
   random_year = FALSE,
   random_locality = FALSE,
@@ -17,6 +17,7 @@ create_insect_nimble_model(
   temporal_basis = NULL,
   temporal_penalty = NULL,
   temporal_penalty_tol = 1e-08,
+  temporal_shared = TRUE,
   spatial_effect = c("none", "coordinates", "autocorrelation"),
   spatial_shared = TRUE,
   spatial_range_prior = c(1000, 5e+05),
@@ -26,197 +27,237 @@ create_insect_nimble_model(
 )
 }
 \arguments{
-\item{modelCovs}{A character vector specifying the names of covariates
-included in the model. Covariates must be represented in the model data
-using the corresponding continuous design-matrix columns or categorical
-index variables.}
+\item{modelCovs}{Character vector specifying the names of covariates
+included in the model. The corresponding variables or design-matrix
+columns must be available in the model data supplied when fitting the
+generated NIMBLE model.}
 
-\item{response}{A character string specifying which response to model.
-Supported values are `"biomass"`, `"diversity"`, and `"both"`.}
+\item{response}{Character string specifying the response to model.
+Supported values are \code{"biomass"}, \code{"diversity"}, and
+\code{"both"}. Defaults to \code{"biomass"} through the first element
+of the argument choices.}
 
-\item{biomass_distribution}{A character string specifying the observation
-distribution for biomass. Supported values are `"normal"` and
-`"lognormal"`. The default is `"normal"`.}
+\item{biomass_distribution}{Character string specifying the observation
+distribution for biomass. Supported values are \code{"normal"} and
+\code{"lognormal"}. Defaults to \code{"normal"}.}
 
-\item{diversity_distribution}{A character string specifying the observation
-distribution for diversity. Supported values are `"poisson"` and
-`"negative_binomial"`. The default is `"poisson"`.}
+\item{diversity_distribution}{Character string specifying the observation
+distribution for diversity. Supported values are \code{"poisson"} and
+\code{"negative_binomial"}. Defaults to \code{"poisson"}.}
 
-\item{covariate_types}{An optional named character vector identifying each
-covariate as `"continuous"` or `"categorical"`. Names must correspond to
-elements of `modelCovs`. If `NULL`, all covariates are treated as
-continuous.}
+\item{covariate_types}{Optional named character vector specifying whether
+each covariate is \code{"continuous"} or \code{"categorical"}. Names
+must correspond to elements of \code{modelCovs}. The default is
+\code{NULL}; interpretation of unspecified covariate types is delegated
+to the selected model builder.}
 
-\item{random_year}{Logical. If `TRUE`, include a year-level random
-intercept for each included response. Defaults to `FALSE`.}
+\item{random_year}{Logical. If \code{TRUE}, include a year-level random
+intercept where supported by the selected model builder. Defaults to
+\code{FALSE}.}
 
-\item{random_locality}{Logical. If `TRUE`, include a locality-level random
-intercept for each included response. Defaults to `FALSE`.}
+\item{random_locality}{Logical. If \code{TRUE}, include a locality-level
+random intercept where supported by the selected model builder. Defaults
+to \code{FALSE}.}
 
-\item{random_replicate}{Logical. If `TRUE`, include a replicate-level random
-intercept for each included response. Defaults to `FALSE`.}
+\item{random_replicate}{Logical. If \code{TRUE}, include a replicate-level
+random intercept where supported by the selected model builder. Defaults
+to \code{FALSE}.}
 
-\item{temporal_effect}{A character string specifying the temporal
-structure. Supported values are `"none"`, `"linear"`, and
-`"cubic_cyclic"`. The default is `"none"`.}
+\item{temporal_effect}{Character string specifying the temporal structure.
+Supported values are \code{"none"}, \code{"linear"}, and
+\code{"cubic_cyclic"}. If \code{"none"} and \code{spatial_effect} is
+also \code{"none"}, the baseline model is selected. Otherwise, the
+temporal setting determines which temporal or spatiotemporal builder is
+selected. Defaults to \code{"none"}.}
 
-\item{temporal_basis}{A numeric matrix containing the temporal spline basis
-evaluated at the observations. Required when
-`temporal_effect = "cubic_cyclic"`. The number of columns determines the
-dimension of the original spline coefficient space.}
+\item{temporal_basis}{Optional numeric matrix containing the temporal
+spline basis evaluated at the observations. Required by model builders
+that use a cyclic cubic spline. Its number of columns must be compatible
+with \code{temporal_penalty}.}
 
-\item{temporal_penalty}{A numeric square matrix representing the penalty
-associated with `temporal_basis`. Required when
-`temporal_effect = "cubic_cyclic"`. Its dimensions must equal the number
-of columns in `temporal_basis`.}
+\item{temporal_penalty}{Optional numeric square matrix representing the
+penalty associated with \code{temporal_basis}. Required by model builders
+that use a cyclic cubic spline. Its dimensions must match the number of
+columns in \code{temporal_basis}.}
 
-\item{temporal_penalty_tol}{A positive numeric tolerance used to determine
-which eigenvalues of the temporal penalty matrix are retained. Eigenvalues
-are retained when they exceed this tolerance multiplied by the maximum
-eigenvalue. Defaults to `1e-8`.}
+\item{temporal_penalty_tol}{Positive finite numeric scalar controlling
+the retention of positive eigenvalues when decomposing the temporal
+penalty matrix. Defaults to \code{1e-8}.}
 
-\item{spatial_effect}{A character string specifying the spatial structure.
-Supported values are `"none"`, `"coordinates"`, and `"autocorrelation"`.
-The default is `"none"`.}
+\item{temporal_shared}{Logical. Determines whether the temporal process is
+shared between biomass and diversity when the selected model structure
+includes a temporal effect. Shared temporal models currently require
+\code{temporal_effect = "cubic_cyclic"}. For spatiotemporal models, this
+setting must match \code{spatial_shared}. Defaults to \code{TRUE}.}
 
-\item{spatial_shared}{Logical. For `spatial_effect = "autocorrelation"`,
-specifies whether biomass and diversity share a latent spatial process.
-If `TRUE`, the process is shared and each response has its own loading.
-If `FALSE`, separate latent spatial processes are generated for the two
-responses. Defaults to `TRUE`.}
+\item{spatial_effect}{Character string specifying the spatial structure.
+Supported values are \code{"none"}, \code{"coordinates"}, and
+\code{"autocorrelation"}. If \code{"none"} and
+\code{temporal_effect} is also \code{"none"}, the baseline model is
+selected. Defaults to \code{"none"}.}
 
-\item{spatial_range_prior}{A numeric vector of length two specifying the
+\item{spatial_shared}{Logical. For spatial autocorrelation models, specifies
+whether the spatial process is shared between biomass and diversity.
+For spatiotemporal models, this setting must match
+\code{temporal_shared}. Separate coordinate-based spatial trends are not
+supported. Defaults to \code{TRUE}.}
+
+\item{spatial_range_prior}{Numeric vector of length two specifying the
 lower and upper bounds of the uniform prior for the spatial range
 parameter. Both values must be positive, and the upper bound must exceed
-the lower bound. Defaults to `c(1000, 500000)`.}
+the lower bound. Defaults to \code{c(1000, 500000)}.}
 
-\item{spatial_sigma_prior}{A positive finite numeric scalar specifying the
-scale used to parameterize the half-normal prior for the spatial standard
-deviation. Defaults to `1`.}
+\item{spatial_sigma_prior}{Positive finite numeric scalar specifying the
+scale used for the half-normal prior on the spatial standard deviation.
+Defaults to \code{1}.}
 
-\item{output_dir}{A character string specifying the directory in which the
-generated model script is saved. The directory is created if it does not
-exist. Defaults to `temp_dir`.}
+\item{output_dir}{Character string specifying the directory in which the
+selected model builder writes the generated model script. The directory
+handling is delegated to that builder. Defaults to \code{temp_dir}.}
 
-\item{model_name}{A character string specifying the base name of the
-generated model script, without the `.R` extension. Defaults to
-`"biomass_diversity_model_nimble"`.}
+\item{model_name}{Character string specifying the base name of the
+generated model script, without the \code{.R} extension. Defaults to
+\code{"biomass_diversity_model_nimble"}.}
 }
 \value{
-Invisibly returns a named list containing:
-\describe{
-  \item{model}{Character string containing the generated NIMBLE model code.}
-  \item{file}{Path to the generated R script.}
-  \item{response}{Selected response specification.}
-  \item{biomass_distribution}{Selected biomass observation distribution.}
-  \item{diversity_distribution}{Selected diversity observation distribution.}
-  \item{covariates}{Names of the supplied covariates.}
-  \item{continuous_covariates}{Names of covariates treated as continuous.}
-  \item{categorical_covariates}{Names of covariates treated as categorical.}
-  \item{covariate_types}{Named covariate-type specification.}
-  \item{random_year}{Whether a year random effect was requested.}
-  \item{random_locality}{Whether a locality random effect was requested.}
-  \item{random_replicate}{Whether a replicate random effect was requested.}
-  \item{temporal_effect}{Selected temporal structure.}
-  \item{temporal_basis}{Original temporal basis matrix.}
-  \item{temporal_penalty}{Temporal penalty matrix after symmetrization.}
-  \item{temporal_basis_penalized}{Temporal basis rotated into the retained
-    penalized eigenbasis, or `NULL` when no cyclic spline is used.}
-  \item{temporal_penalty_eigenvalues}{Retained positive eigenvalues of the
-    temporal penalty matrix, or `NULL` when no cyclic spline is used.}
-  \item{temporal_penalty_eigenvectors}{Eigenvectors associated with the
-    retained positive eigenvalues, or `NULL` when no cyclic spline is used.}
-  \item{temporal_penalty_tol}{Tolerance used to retain penalty eigenvalues.}
-  \item{n_temporal_basis}{Number of retained penalized spline basis
-    functions.}
-  \item{temporal_constants}{List of constants required by the penalized
-    temporal component of the generated model.}
-  \item{spatial_effect}{Selected spatial structure.}
-  \item{spatial_shared}{Whether the spatial process is shared.}
-  \item{spatial_range_prior}{Bounds used for the spatial range prior.}
-  \item{spatial_sigma_prior}{Scale used for the spatial standard-deviation
-    prior.}
-}
+Returns the object produced by the selected standalone model
+  builder. This is expected to be a list containing the generated model
+  code, output file path, response and covariate configuration, and
+  temporal or spatial metadata. When the result is a list, the dispatcher
+  adds the following elements:
+  \describe{
+    \item{selected_function}{Name of the standalone model-builder function
+      selected by the dispatcher.}
+    \item{effect_structure}{Selected structure: \code{"none"},
+      \code{"temporal"}, \code{"spatial"}, or \code{"spatiotemporal"}.}
+    \item{temporal_shared}{Requested temporal-sharing setting when a
+      temporal effect is included; otherwise \code{NA}.}
+    \item{spatial_shared}{Requested spatial-sharing setting when a
+      spatial effect is included; otherwise \code{NA}.}
+  }
 }
 \description{
-Generate NIMBLE model code for Bayesian analyses of insect biomass,
-diversity, or both responses. The function supports alternative response
-distributions, continuous fixed effects, categorical random effects,
-optional grouping-level random effects, temporal effects, and spatial
-effects.
+Generate a Bayesian NIMBLE model specification for insect biomass,
+species diversity, or both responses. The function acts as a dispatcher
+that selects one of seven standalone model builders according to the
+requested temporal and spatial structure.
 }
 \details{
-Continuous covariates are included as fixed effects, whereas categorical
-covariates are represented as random effects. Optional random intercepts
-can be specified for year, locality, and replicate. Temporal structure can
-be modelled using no temporal effect, a linear temporal effect, or a
-penalized cubic cyclic spline. Spatial structure can be represented by
-coordinate-based trends or a latent Gaussian spatial autocorrelation
-process.
+The available model structures are:
+\describe{
+  \item{Baseline}{No temporal or spatial process.}
+  \item{Temporal shared}{A temporal process shared between biomass and
+    diversity.}
+  \item{Temporal separate}{Response-specific temporal processes.}
+  \item{Spatial shared}{A spatial autocorrelation process shared between
+    biomass and diversity.}
+  \item{Spatial separate}{Response-specific spatial autocorrelation
+    processes.}
+  \item{Spatiotemporal shared}{Shared temporal and spatial processes.}
+  \item{Spatiotemporal separate}{Separate temporal and spatial processes
+    for the responses.}
+}
 
-For cyclic cubic splines, the function accepts a basis matrix and its
-associated penalty matrix, typically obtained from `mgcv`. The penalty
-matrix is symmetrized and decomposed into eigenvalues and eigenvectors.
-Eigenvectors associated with positive eigenvalues are retained to construct
-a penalized basis with independent Gaussian coefficient priors.
+The selected model builder determines the implementation of the requested
+effects. Spatiotemporal models combine temporal and spatial effects
+additively; they do not include a location-specific temporal interaction.
+The baseline model excludes both temporal and spatial processes but can
+retain the optional grouping-level random effects.
 
-The function constructs the model using `nimbleCode()` syntax, writes the
-generated model code to an R script, and invisibly returns the model code,
-file path, model configuration, covariate information, and relevant
-temporal and spatial metadata.
+Continuous covariates are represented by fixed effects, while categorical
+covariates can be represented by random effects according to the selected
+model builder. Optional grouping-level random intercepts can be specified
+for year, locality, and replicate.
+
+The function validates the model configuration, identifies the appropriate
+standalone builder, and passes the relevant arguments to that builder.
+The standalone model-builder functions must be defined in the calling
+environment before this dispatcher is used.
 
 
-The generated model uses normal observation models for normally distributed
-biomass and log-normal observation models for positive biomass values.
-Diversity is modelled using either a Poisson or a negative-binomial
-likelihood. Continuous covariate effects and intercepts use normal priors.
-Group-level random effects use zero-centred normal distributions with
-estimated precisions. Spatial autocorrelation is represented using an
-exponential distance-based covariance function.
+The dispatcher selects a model builder according to the following rules:
+\describe{
+  \item{No temporal or spatial effect}{
+    \code{create_insect_nimble_baseline_model()}.}
+  \item{Temporal effect only}{
+    \code{create_temporal_shared_model()} or
+    \code{create_temporal_separate_model()}, according to
+    \code{temporal_shared}.}
+  \item{Spatial effect only}{
+    \code{create_spatial_shared_model()} or
+    \code{create_spatial_separate_model()}, according to
+    \code{spatial_shared}.}
+  \item{Both effects}{
+    \code{create_spatiotemporal_shared_model()} or
+    \code{create_spatiotemporal_separate_model()}. Both sharing settings
+    must be \code{TRUE} or both must be \code{FALSE}.}
+}
 
-When a cyclic cubic spline is requested, the supplied penalty matrix is
-decomposed as \(S = V D V^{T}\). Eigenvectors associated with positive
-eigenvalues are retained, and the basis is rotated into this eigenbasis.
-The corresponding spline coefficients receive independent normal priors
-whose precisions are the product of a response-specific smoothing precision
-and the retained penalty eigenvalues.
+The dispatcher does not itself construct or fit the NIMBLE model. It
+delegates model generation to the selected function. The caller must
+provide compatible data, constants, initial values, and MCMC settings
+when compiling and fitting the generated model.
 
-This function generates model code but does not compile or fit the model.
-The caller must supply compatible NIMBLE data, constants, initial values,
-and MCMC configuration when fitting the model.
+The baseline excludes temporal and spatial processes but does not
+automatically disable the optional year, locality, or replicate random
+intercepts. Set the corresponding \code{random_*} arguments to
+\code{FALSE} if those terms should also be excluded.
+
+Shared temporal models currently require a cyclic cubic spline.
+Spatiotemporal models support shared temporal and shared spatial effects,
+or separate temporal and separate spatial effects. Mixed sharing
+configurations are not implemented by the available model builders.
+Separate coordinate-based spatial trends are not supported.
 }
 \examples{
 \dontrun{
-# Generate a model for biomass and diversity.
-model_spec <- create_insect_nimble_model(
+# Baseline model: no temporal or spatial process.
+baseline_spec <- create_insect_nimble_model(
   modelCovs = c("temperature", "habitat"),
   response = "both",
   biomass_distribution = "lognormal",
   diversity_distribution = "negative_binomial",
-  covariate_types = c(
-    temperature = "continuous",
-    habitat = "categorical"
-  ),
-  output_dir = tempdir()
+  temporal_effect = "none",
+  spatial_effect = "none",
+  random_year = FALSE,
+  random_locality = TRUE,
+  random_replicate = FALSE,
+  output_dir = tempdir(),
+  model_name = "insect_baseline"
 )
 
-# Inspect the generated model and output path.
-cat(model_spec$model)
-model_spec$file
-
-# Generate a model with a penalized cyclic temporal effect.
-# temporal_basis and temporal_penalty must be prepared beforehand.
-cyclic_spec <- create_insect_nimble_model(
-  modelCovs = "temperature",
-  response = "diversity",
+# Temporal model with a shared cyclic spline.
+temporal_spec <- create_insect_nimble_model(
+  modelCovs = c("temperature", "habitat"),
+  response = "both",
   temporal_effect = "cubic_cyclic",
   temporal_basis = temporal_basis,
   temporal_penalty = temporal_penalty,
-  output_dir = tempdir()
+  temporal_shared = TRUE,
+  spatial_effect = "none",
+  output_dir = tempdir(),
+  model_name = "insect_temporal_shared"
+)
+
+# Spatial autocorrelation model with separate spatial processes.
+spatial_spec <- create_insect_nimble_model(
+  modelCovs = c("temperature", "habitat"),
+  response = "both",
+  temporal_effect = "none",
+  spatial_effect = "autocorrelation",
+  spatial_shared = FALSE,
+  output_dir = tempdir(),
+  model_name = "insect_spatial_separate"
 )
 }
 
 }
 \seealso{
-[nimble::nimbleCode()], [mgcv::cSplineDes()]
+\code{\link{create_insect_nimble_baseline_model}},
+\code{\link{create_insect_temporal_shared_model}},
+\code{\link{create_insect_temporal_separate_model}},
+\code{\link{create_insect_spatial_shared_model}},
+\code{\link{create_insect_spatial_separate_model}},
+\code{\link{create_insect_spatiotemporal_shared_model}},
+\code{\link{create_insect_spatiotemporal_separate_model}}
 }

@@ -7,6 +7,7 @@
 create_insect_nimble_initial_values(
   modelling_data,
   modelCovs,
+  model_structure = NULL,
   covariate_types = NULL,
   response = "biomass",
   biomass_col = "sum_wet_weight",
@@ -20,10 +21,11 @@ create_insect_nimble_initial_values(
   locality_col = "locality",
   replicate_col = "sampling_name",
   temporal_data = NULL,
-  temporal_effect = c("none", "linear", "cubic_cyclic"),
+  temporal_effect = NULL,
+  temporal_shared = NULL,
   temporal_basis_penalized = NULL,
-  spatial_effect = c("none", "coordinates", "autocorrelation"),
-  spatial_shared = TRUE,
+  spatial_effect = NULL,
+  spatial_shared = NULL,
   longitude_col = "longitude",
   latitude_col = "latitude",
   spatial_range_prior = c(1000, 5e+05),
@@ -38,6 +40,12 @@ required by the selected model configuration.}
 
 \item{modelCovs}{Character vector of covariate column names included in the
 model. If `NULL` or omitted, no covariates are included.}
+
+\item{model_structure}{Optional explicit model structure: `baseline`,
+`temporal_shared`, `temporal_separate`, `spatial_shared`,
+`spatial_separate`, `spatiotemporal_shared`, or `spatiotemporal_separate`.
+If `NULL` (default), the structure is inferred from the temporal and spatial
+arguments, like the model-building dispatcher.}
 
 \item{covariate_types}{Optional named character vector specifying the type of
 each covariate in `modelCovs`. Supported values are `"continuous"` and
@@ -59,16 +67,16 @@ Required when `response` includes diversity.}
 \item{diversity_distribution}{Diversity response distribution: `"poisson"`
 or `"negative_binomial"`. Defaults to `"poisson"`.}
 
-\item{random_year}{Logical; if `TRUE`, initialise year-level random effects
-for each included response.}
+\item{random_year}{Logical; if `TRUE`, initialise one shared year-level
+random effect used by each included response.}
 
-\item{random_locality}{Logical; if `TRUE`, initialise locality-level random
-effects for each included response.}
+\item{random_locality}{Logical; if `TRUE`, initialise one shared locality-
+level random effect used by each included response.}
 
-\item{random_replicate}{Logical; if `TRUE`, initialise replicate-level random
-effects for each included response. Replicate numbers are extracted from
-the suffix following the last hyphen in the replicate identifier and
-indexed within locality-year groups.}
+\item{random_replicate}{Logical; if `TRUE`, initialise one shared replicate-
+level random effect used by each included response. Replicate numbers are
+extracted from the suffix following the last hyphen in the replicate
+identifier and indexed within locality-year groups.}
 
 \item{year_col}{Name of the column identifying years when `random_year =
 TRUE`. Defaults to `"year"`.}
@@ -83,21 +91,28 @@ when `random_replicate = TRUE`. Defaults to `"sampling_name"`.}
 one value per row of `modelling_data`. Required when `temporal_effect` is
 `"linear"` or `"cubic_cyclic"`.}
 
-\item{temporal_effect}{Temporal model specification: `"none"`, `"linear"`,
-or `"cubic_cyclic"`. Defaults to `"none"`.}
+\item{temporal_effect}{Temporal specification: `"none"`, `"linear"`, or
+`"cubic_cyclic"`. When `model_structure = NULL`, this determines whether
+the temporal component is included. Defaults to `"none"`. If omitted, the selected `model_structure` determines
+whether a temporal effect is included and defaults to `"cubic_cyclic"`.}
+
+\item{temporal_shared}{Logical or `NULL`. Normally inferred from
+`model_structure`; shared temporal coefficients are supported only for
+cubic cyclic effects. If supplied, the value must agree with the selected
+model structure.}
 
 \item{temporal_basis_penalized}{Numeric matrix containing the cyclic spline
 basis projected onto the positive-eigenvalue subspace of the spline penalty
 matrix. Required when `temporal_effect = "cubic_cyclic"`. It must have one
 row per observation and at least one column.}
 
-\item{spatial_effect}{Spatial model specification: `"none"`,
-`"coordinates"`, or `"autocorrelation"`. Defaults to `"none"`.}
+\item{spatial_effect}{Optional spatial specification: `"coordinates"` or
+`"autocorrelation"`. If omitted, spatial model structures default to
+`"autocorrelation"` and other structures use no spatial effect.}
 
-\item{spatial_shared}{Logical; if `TRUE`, initialise a shared latent spatial
-process with response-specific loadings when spatial autocorrelation is
-used. If `FALSE`, initialise separate spatial processes for the included
-responses. This argument applies to `spatial_effect = "autocorrelation"`.}
+\item{spatial_shared}{Optional logical override for the spatial process. The
+selected structure sets this automatically; it is exposed for compatibility
+and must agree with `model_structure`.}
 
 \item{longitude_col}{Name of the numeric longitude column. Defaults to
 `"longitude"`.}
@@ -153,25 +168,25 @@ estimate when the observed variance exceeds the mean; otherwise, a fallback
 value is used. The resulting estimate is constrained to the interval
 [0.1, 1000].
 
-Regression coefficients for continuous covariates, categorical random
-effects, and the optional year, locality, and replicate effects are
-initialised to zero. Associated precision parameters are generally
-initialised to one.
+The selected model structure determines whether fixed and ordinary random
+effects are shared or response-specific. Initial values are zero for regression
+coefficients and latent random effects, with precision parameters set to one.
 
-For a linear temporal effect, the temporal regression coefficient is
-initialised to zero. For a cubic cyclic temporal effect, each included
-response receives a zero-initialised coefficient vector whose length equals
-the number of columns in `temporal_basis_penalized`. The corresponding
-temporal precision parameter is initialised to one. The supplied basis must
-be consistent with the penalised basis used by
-[create_insect_nimble_model()].
+For a linear temporal effect, each included response receives a temporal
+regression coefficient initialised to zero. For a cubic cyclic temporal
+effect, each response receives its own zero-initialised coefficient vector
+and precision by default. When `temporal_shared = TRUE`, a single shared
+coefficient vector (`beta_time_shared`) and precision
+(`temporal_tau_shared`) are initialised instead. The supplied basis must be
+consistent with the penalised basis used by the model-construction function.
 
 For a coordinate-based spatial effect, longitude and latitude coefficients
 are initialised to zero. For spatial autocorrelation, latent spatial effects
-are initialised to zero. Spatial range parameters are initialised to the
-midpoint of `spatial_range_prior`, spatial standard deviations are
-initialised to the larger of 0.5 and `spatial_sigma_prior`, and
-response-specific spatial loadings are initialised to zero.
+are initialised to zero, range parameters to the midpoint of
+`spatial_range_prior`, and spatial standard deviations to the larger of 0.5
+and `spatial_sigma_prior`. Separate spatial structures receive response-
+specific fields. The spatiotemporal shared builder also initialises the
+diversity loading for its shared spatial field.
 
 The response columns are checked for numeric, finite values. Lognormal
 biomass requires strictly positive observations. Poisson and negative
@@ -185,6 +200,6 @@ process dimensions must match those used by the other model-construction
 helpers.
 }
 \seealso{
-[create_insect_nimble_model()], [create_insect_nimble_data()],
+[create_insect_spatial_shared_model()], [create_insect_nimble_data()],
 [create_insect_nimble_constants()]
 }
