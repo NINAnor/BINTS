@@ -18,7 +18,7 @@ create_insect_spatial_separate_model(
   temporal_penalty = NULL,
   temporal_penalty_tol = 1e-08,
   temporal_shared = FALSE,
-  spatial_effect = "autocorrelation",
+  spatial_effect = c("autocorrelation", "coordinates"),
   spatial_shared = FALSE,
   spatial_range_prior = c(1000, 5e+05),
   spatial_sigma_prior = 1,

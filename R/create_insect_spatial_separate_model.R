@@ -306,7 +306,7 @@ create_insect_spatial_separate_model <- function(
   # Spatial effect
   # --------------------------------------------------------------------------
 
-  spatial_effect = "autocorrelation",
+  spatial_effect = c("autocorrelation", "coordinates"),
 
   spatial_shared = FALSE,
 

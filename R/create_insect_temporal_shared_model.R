@@ -199,7 +199,7 @@ create_insect_temporal_shared_model <- function(
   # Temporal effect
   # --------------------------------------------------------------------------
 
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "linear", "none"),
 
   temporal_basis = NULL,
 

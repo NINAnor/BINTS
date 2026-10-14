@@ -13,7 +13,7 @@ create_insect_temporal_shared_model(
   random_year = FALSE,
   random_locality = FALSE,
   random_replicate = FALSE,
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "linear", "none"),
   temporal_basis = NULL,
   temporal_penalty = NULL,
   temporal_penalty_tol = 1e-08,

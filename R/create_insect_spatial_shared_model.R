@@ -165,7 +165,7 @@ create_insect_spatial_shared_model <- function(
   # Spatial effect
   # --------------------------------------------------------------------------
 
-  spatial_effect = "autocorrelation",
+  spatial_effect = c("autocorrelation", "coordinates"),
 
   spatial_shared = TRUE,
 

@@ -249,7 +249,7 @@ create_insect_spatiotemporal_shared_model <- function(
   # Temporal effect
   # --------------------------------------------------------------------------
 
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "none", "linear"),
 
   temporal_basis = NULL,
 
@@ -267,7 +267,7 @@ create_insect_spatiotemporal_shared_model <- function(
   # Spatial effect
   # --------------------------------------------------------------------------
 
-  spatial_effect = "autocorrelation",
+  spatial_effect = c("autocorrelation", "coordinates", "none"),
 
   spatial_shared = TRUE,
 

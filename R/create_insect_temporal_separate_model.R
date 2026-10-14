@@ -133,7 +133,7 @@ create_insect_temporal_separate_model <- function(
   # Temporal effect
   # --------------------------------------------------------------------------
 
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "linear"),
 
   temporal_basis = NULL,
 
