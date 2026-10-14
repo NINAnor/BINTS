@@ -4,7 +4,12 @@
 \alias{select_insect_module}
 \title{Select a Model Module for Insect Biomass and Diversity}
 \usage{
-select_insect_module(module = NULL, temporal_basis_k = 10)
+select_insect_module(
+  module = NULL,
+  temporal_basis_k = 10,
+  temporal_shared = NULL,
+  spatial_shared = NULL
+)
 }
 \arguments{
 \item{module}{Character string specifying the model module to select.
@@ -14,21 +19,30 @@ Supported values are:
     or spatial effect. Year, locality, and replicate random effects
     remain enabled. The character string `"NULL"` is also accepted.}
   \item{`"temporal_linear"`}{Includes a linear temporal effect without
-    an explicit spatial effect.}
+    an explicit spatial effect. The temporal effect must be separate.}
   \item{`"temporal_cyclic"`}{Includes a cyclic cubic spline temporal
-    effect without an explicit spatial effect.}
-  \item{`"spatial_coordinates"`}{Selects the coordinate-based spatial
-    effect without an explicit temporal effect.}
-  \item{`"spatial_autocorrelation"`}{Selects the spatial autocorrelation
-    effect without an explicit temporal effect.}
+    effect without an explicit spatial effect. The temporal effect
+    can be shared or separate.}
+  \item{`"spatial_coordinates"`}{Selects the shared coordinate-based
+    spatial effect without an explicit temporal effect.}
+  \item{`"spatial_autocorrelation"`}{Selects a spatial autocorrelation
+    effect without an explicit temporal effect. The spatial effect
+    can be shared or separate.}
   \item{`"spatio_temporal_linear_coordinates"`}{Combines a linear
-    temporal effect with a coordinate-based spatial effect.}
+    temporal effect with a coordinate-based spatial effect. This
+    combination is incompatible with the current sharing constraints
+    because linear temporal effects must be separate and coordinate-
+    based spatial effects must be shared.}
   \item{`"spatio_temporal_linear_autocorrelation"`}{Combines a linear
-    temporal effect with spatial autocorrelation.}
+    temporal effect with spatial autocorrelation. Both effects must
+    be separate under the current implementation.}
   \item{`"spatio_temporal_cyclic_coordinates"`}{Combines a cyclic cubic
-    spline temporal effect with a coordinate-based spatial effect.}
+    spline temporal effect with a coordinate-based spatial effect.
+    Both effects must be shared under the current implementation.}
   \item{`"spatio_temporal_cyclic_autocorrelation"`}{Combines a cyclic
-    cubic spline temporal effect with spatial autocorrelation.}
+    cubic spline temporal effect with spatial autocorrelation. Both
+    effects can be shared or separate, but their sharing settings
+    must agree.}
 }
 Defaults to `NULL`.}
 
@@ -38,87 +52,130 @@ greater than or equal to four. Defaults to `10`. This argument is
 retained in the returned configuration for all modules, but is used
 to construct the temporal spline only when `temporal_effect` is
 `"cubic_cyclic"`.}
+
+\item{temporal_shared}{Optional logical value specifying whether the
+temporal effect is shared between the modelled responses. Must be a
+single non-missing logical value when supplied. If `NULL`, defaults
+to `TRUE` for a cyclic cubic temporal effect and `FALSE` otherwise.
+Shared temporal effects currently require
+`temporal_effect = "cubic_cyclic"`. Must be `FALSE` when
+`temporal_effect = "none"`.}
+
+\item{spatial_shared}{Optional logical value specifying whether the
+spatial effect is shared between the modelled responses. Must be a
+single non-missing logical value when supplied. If `NULL`, defaults
+to `FALSE` when no spatial effect is selected, `TRUE` for a
+spatial-only model, and the value of `temporal_shared` for a
+spatiotemporal model. Must be `FALSE` when `spatial_effect = "none"`.
+Separate coordinate-based spatial effects are not supported.
+Spatiotemporal models require `temporal_shared` and `spatial_shared`
+to have the same value.}
 }
 \value{
-A named list containing the model configuration. The list can be
-  supplied as arguments to [run_insect_nimble_model()] using `do.call()`.
+A named list containing the model configuration. The list can
+  be supplied as arguments to [run_insect_nimble_model()] using
+  `do.call()`.
 }
 \description{
-Selects a model configuration specifying the temporal effect, spatial
-effect, and random-effects structure for an insect biomass and diversity
-model. The returned configuration can be passed to
-[run_insect_nimble_model()] to construct and fit the selected model.
+Selects and validates a model configuration specifying the temporal
+effect, spatial effect, sharing structure, and random-effects structure
+for an insect biomass and diversity model. The returned configuration
+can be passed to [run_insect_nimble_model()] to construct and fit the
+selected model.
 }
 \details{
-The function supports a baseline model, temporal-only models, spatial-only
-models, and combined spatiotemporal models. For spatial and spatiotemporal
-modules, the locality random effect is disabled to avoid including an
-additional locality-level effect alongside the selected spatial structure.
+The function supports a baseline model, temporal-only models,
+spatial-only models, and combined spatiotemporal models. For spatial
+and spatiotemporal modules, the locality random effect is disabled to
+avoid including an additional locality-level effect alongside the
+selected spatial structure.
+
+Temporal and spatial effects can be shared between the modelled
+responses where supported. Shared linear temporal effects and separate
+coordinate-based spatial effects are not currently supported.
 
 
-The function returns a named list containing the following configuration
-elements:
+The function returns a named list containing the following
+configuration elements:
 \describe{
-  \item{`random_year`}{Logical indicating whether year-level random effects
-    are enabled. Set to `TRUE` for all modules.}
-  \item{`random_locality`}{Logical indicating whether locality-level random
-    effects are enabled. Set to `TRUE` for the baseline and temporal-only
-    modules, and `FALSE` for spatial and spatiotemporal modules.}
+  \item{`random_year`}{Logical indicating whether year-level random
+    effects are enabled. Set to `TRUE` for all modules.}
+  \item{`random_locality`}{Logical indicating whether locality-level
+    random effects are enabled. Set to `TRUE` for the baseline and
+    temporal-only modules, and `FALSE` for spatial and spatiotemporal
+    modules.}
   \item{`random_replicate`}{Logical indicating whether replicate-level
     random effects are enabled. Set to `TRUE` for all modules.}
-  \item{`temporal_effect`}{Character string passed to the model-fitting
-    function. Takes one of `"none"`, `"linear"`, or `"cubic_cyclic"`.}
-  \item{`temporal_basis_k`}{Integer specifying the requested cyclic spline
-    basis dimension.}
-  \item{`spatial_effect`}{Character string passed to the model-fitting
-    function. Takes one of `"none"`, `"coordinates"`, or
-    `"autocorrelation"`.}
-  \item{`spatial_shared`}{Logical indicating whether the spatial structure
-    is shared between modelled responses, where supported. Set to `TRUE`
-    for all modules.}
+  \item{`temporal_effect`}{Character string specifying `"none"`,
+    `"linear"`, or `"cubic_cyclic"`.}
+  \item{`temporal_shared`}{Logical indicating whether the temporal
+    effect is shared between modelled responses.}
+  \item{`temporal_basis_k`}{Integer specifying the requested cyclic
+    spline basis dimension.}
+  \item{`spatial_effect`}{Character string specifying `"none"`,
+    `"coordinates"`, or `"autocorrelation"`.}
+  \item{`spatial_shared`}{Logical indicating whether the spatial
+    effect is shared between modelled responses.}
 }
 
-The selected configuration determines model structure but does not supply
-the observation data or spatial and temporal variables. Those inputs must
-be supplied separately to [run_insect_nimble_model()]. Temporal models
-require the columns specified by `temporal_col`; spatial models require
-the coordinate columns specified by `longitude_col` and `latitude_col`.
-Spatial autocorrelation models may additionally use `spatial_range_prior`
-and `spatial_sigma_prior`.
+The selected configuration determines model structure but does not
+supply the observation data or spatial and temporal variables. Those
+inputs must be supplied separately to [run_insect_nimble_model()].
+Temporal models require the columns specified by `temporal_col`;
+spatial models require the coordinate columns specified by
+`longitude_col` and `latitude_col`. Spatial autocorrelation models
+additionally require appropriate spatial range and spatial
+standard-deviation priors when the model is fitted.
 
-Each call prints a message describing the selected module and its
-configuration. The function also prints the final configuration before
-returning it.
+The function prints a message describing the selected module and its
+final configuration. The returned configuration is invisible.
 }
 \examples{
 # Baseline model
 baseline_config <- select_insect_module()
 
-# Temporal-only models
+# Linear temporal effect: separate by default
 linear_config <- select_insect_module("temporal_linear")
+
+# Shared cyclic cubic temporal effect
 cyclic_config <- select_insect_module(
   "temporal_cyclic",
   temporal_basis_k = 10
 )
 
-# Spatial-only models
-coordinates_config <- select_insect_module("spatial_coordinates")
-autocorrelation_config <- select_insect_module("spatial_autocorrelation")
+# Separate cyclic cubic temporal effects
+cyclic_separate_config <- select_insect_module(
+  "temporal_cyclic",
+  temporal_shared = FALSE
+)
 
-# Spatiotemporal models
-linear_coordinates_config <- select_insect_module(
-  "spatio_temporal_linear_coordinates"
+# Shared spatial autocorrelation
+spatial_shared_config <- select_insect_module(
+  "spatial_autocorrelation"
 )
-linear_autocorrelation_config <- select_insect_module(
-  "spatio_temporal_linear_autocorrelation"
+
+# Separate spatial autocorrelation
+spatial_separate_config <- select_insect_module(
+  "spatial_autocorrelation",
+  spatial_shared = FALSE
 )
-cyclic_coordinates_config <- select_insect_module(
-  "spatio_temporal_cyclic_coordinates",
-  temporal_basis_k = 10
+
+# Shared cyclic spatiotemporal model
+cyclic_spatiotemporal_config <- select_insect_module(
+  "spatio_temporal_cyclic_autocorrelation"
 )
-cyclic_autocorrelation_config <- select_insect_module(
+
+# Separate cyclic spatiotemporal model
+cyclic_spatiotemporal_separate_config <- select_insect_module(
   "spatio_temporal_cyclic_autocorrelation",
-  temporal_basis_k = 10
+  temporal_shared = FALSE,
+  spatial_shared = FALSE
+)
+
+# Linear spatiotemporal autocorrelation model:
+# both effects are separate under the current constraints
+linear_spatiotemporal_config <- select_insect_module(
+  "spatio_temporal_linear_autocorrelation"
 )
 
 # Pass a selected configuration to the model-fitting function
@@ -127,9 +184,10 @@ cyclic_autocorrelation_config <- select_insect_module(
 #   c(
 #     list(
 #       modelling_data = modelling_data,
-#       modelCovs = modelCovs
+#       modelCovs = modelCovs,
+#       covariate_types = covariate_types
 #     ),
-#     cyclic_autocorrelation_config
+#     cyclic_spatiotemporal_config
 #   )
 # )
 
