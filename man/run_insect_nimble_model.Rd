@@ -19,6 +19,7 @@ run_insect_nimble_model(
   random_locality = TRUE,
   random_replicate = TRUE,
   temporal_effect = "cubic_cyclic",
+  temporal_shared = TRUE,
   temporal_basis_k = 10,
   spatial_effect = "none",
   spatial_shared = TRUE,
@@ -85,6 +86,11 @@ effects. Defaults to `TRUE`.}
 
 \item{temporal_effect}{Temporal effect specification: `"none"`, `"linear"`,
 or `"cubic_cyclic"`. Defaults to `"cubic_cyclic"`.}
+
+\item{temporal_shared}{Logical; for temporal effects, determines whether
+the temporal process is shared between biomass and diversity. For
+spatiotemporal models, this setting must match `spatial_shared`.
+Defaults to `TRUE`.}
 
 \item{temporal_basis_k}{Integer specifying the requested basis dimension
 for the cubic cyclic spline. Must be an integer greater than or equal to

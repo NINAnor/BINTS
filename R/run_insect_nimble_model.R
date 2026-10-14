@@ -51,6 +51,10 @@
 #' @param temporal_basis_k Integer specifying the requested basis dimension
 #'   for the cubic cyclic spline. Must be an integer greater than or equal to
 #'   four. Defaults to `10`.
+#' @param temporal_shared Logical; for temporal effects, determines whether
+#'   the temporal process is shared between biomass and diversity. For
+#'   spatiotemporal models, this setting must match `spatial_shared`.
+#'   Defaults to `TRUE`.
 #' @param spatial_effect Spatial effect specification: `"none"`,
 #'   `"coordinates"`, or `"autocorrelation"`. Defaults to `"none"`.
 #' @param spatial_shared Logical; for spatial effects, determines whether the
@@ -161,510 +165,893 @@
 
 run_insect_nimble_model <- function(
 
-    modelling_data,
-    modelCovs,
-    covariate_types = NULL,
+  modelling_data,
+  modelCovs,
+  covariate_types = NULL,
 
-    # ==========================================================
-    # Responses
-    # ==========================================================
+  # ==========================================================
+  # Responses
+  # ==========================================================
 
-    response = "both",
-    biomass_col = "sum_wet_weight",
-    diversity_col = "shannon_div",
+  response = "both",
+  biomass_col = "sum_wet_weight",
+  diversity_col = "shannon_div",
 
-    # ==========================================================
-    # Response distributions
-    # ==========================================================
-    biomass_distribution = "normal",
-    diversity_distribution = "normal",
+  # ==========================================================
+  # Response distributions
+  # ==========================================================
+  biomass_distribution = "normal",
+  diversity_distribution = "normal",
 
-    # ==========================================================
-    # Replicate structure
-    # ==========================================================
-    replicate_col = "sampling_name",
-
-
-    # ==========================================================
-    # Temporal structure
-    # ==========================================================
-
-    temporal_col = c(
-        "start_date_julian",
-        "end_date_julian"
-    ),
+  # ==========================================================
+  # Replicate structure
+  # ==========================================================
+  replicate_col = "sampling_name",
 
 
-    # ==========================================================
-    # Random effects
-    # ==========================================================
-    random_year = TRUE,
-    random_locality = TRUE,
-    random_replicate = TRUE,
+  # ==========================================================
+  # Temporal structure
+  # ==========================================================
 
-    # ==========================================================
-    # Temporal effect
-    #==========================================================
-
-    temporal_effect = "cubic_cyclic",
-    temporal_basis_k = 10,
-
-    # ==========================================================
-    # Spatial effect
-    #
-    # "none"
-    # "coordinates"
-    # "autocorrelation"
-    # ==========================================================
-    spatial_effect = "none",
-
-    # If TRUE:
-    #  - coordinates: one shared spatial coordinate effect
-    #   - autocorrelation: one shared latent spatial process
-    #
-    # If FALSE:
-    #   - biomass and diversity receive separate spatial effects
-    spatial_shared = TRUE,
-    longitude_col = "longitude",
-    latitude_col = "latitude",
-    # ==========================================================
-    # Spatial priors
-    #
-    # Range is specified in metres because coordinates are
-    # transformed to EPSG:25833 for the distance calculation.
-    # ==========================================================
-
-    spatial_range_prior = c(
-        1000,
-        500000
-    ),
-
-    spatial_sigma_prior = 1,
-
-    # ==========================================================
-    # Output
-    # ==========================================================
-    output_dir = temp_dir,
+  temporal_col = c(
+    "start_date_julian",
+    "end_date_julian"
+  ),
 
 
-    # ==========================================================
-    # MCMC
-    # ==========================================================
+  # ==========================================================
+  # Random effects
+  # ==========================================================
+  random_year = TRUE,
+  random_locality = TRUE,
+  random_replicate = TRUE,
 
-    seed = 123,
-    run_mcmc = TRUE,
-    run_waic = TRUE,
-    niter = 20000,
-    nburnin = 5000,
-    thin = 10,
-    nchains = 2
+  # ==========================================================
+  # Temporal effect
+  #==========================================================
+
+  temporal_effect = "cubic_cyclic",
+  temporal_shared = TRUE,
+  temporal_basis_k = 10,
+
+  # ==========================================================
+  # Spatial effect
+  #
+  # "none"
+  # "coordinates"
+  # "autocorrelation"
+  # ==========================================================
+  spatial_effect = "none",
+
+  # If TRUE:
+  #  - coordinates: one shared spatial coordinate effect
+  #   - autocorrelation: one shared latent spatial process
+  #
+  # If FALSE:
+  #   - biomass and diversity receive separate spatial effects
+  spatial_shared = TRUE,
+  longitude_col = "longitude",
+  latitude_col = "latitude",
+  # ==========================================================
+  # Spatial priors
+  #
+  # Range is specified in metres because coordinates are
+  # transformed to EPSG:25833 for the distance calculation.
+  # ==========================================================
+
+  spatial_range_prior = c(
+    1000,
+    500000
+  ),
+
+  spatial_sigma_prior = 1,
+
+  # ==========================================================
+  # Output
+  # ==========================================================
+  output_dir = temp_dir,
+
+
+  # ==========================================================
+  # MCMC
+  # ==========================================================
+
+  seed = 123,
+  run_mcmc = TRUE,
+  run_waic = TRUE,
+  niter = 20000,
+  nburnin = 5000,
+  thin = 10,
+  nchains = 2
 ) {
 
 
-    # ==========================================================
+  # ==========================================================
 
-    # Load required package
+  # Load required package
 
-    # ==========================================================
+  # ==========================================================
 
-    if (!requireNamespace(
+  if (!requireNamespace(
 
-        "nimble",
+    "nimble",
 
-        quietly = TRUE
+    quietly = TRUE
 
-    )) {
+  )) {
 
-        stop(
-            "Package 'nimble' is required.",
-            call. = FALSE
-        )
+    stop(
+      "Package 'nimble' is required.",
+      call. = FALSE
+    )
 
-    }
-
-
+  }
 
 
 
-    # ==========================================================
-
-    # Validate response
-
-    # ==========================================================
 
 
+  # ==========================================================
 
-    response <- match.arg(
+  # Validate response
 
-        response,
+  # ==========================================================
 
-        choices = c(
 
-            "biomass",
 
-            "diversity",
+  response <- match.arg(
 
-            "both"
+    response,
 
-        )
+    choices = c(
+
+      "biomass",
+
+      "diversity",
+
+      "both"
+
+    )
+
+  )
+
+
+
+
+
+  # ==========================================================
+
+  # Validate distributions
+
+  # ==========================================================
+
+
+
+  biomass_distribution <- match.arg(
+
+    biomass_distribution,
+
+    choices = c(
+
+      "normal",
+
+      "lognormal"
+
+    )
+
+  )
+
+
+
+  diversity_distribution <- match.arg(
+
+    diversity_distribution,
+
+    choices = c(
+
+      "normal",
+
+      "poisson",
+
+      "negative_binomial"
+
+    )
+
+  )
+
+
+
+
+
+  # ==========================================================
+
+  # Validate temporal sharing
+
+  if (!is.logical(temporal_shared) ||
+      length(temporal_shared) != 1L ||
+      is.na(temporal_shared)) {
+    stop("'temporal_shared' must be TRUE or FALSE.", call. = FALSE)
+  }
+
+  # Validate spatial effect
+
+  # ==========================================================
+
+
+
+  spatial_effect <- match.arg(
+
+    spatial_effect,
+
+    choices = c(
+
+      "none",
+
+      "coordinates",
+
+      "autocorrelation"
+
+    )
+
+  )
+
+
+  if (temporal_effect == "linear" && temporal_shared) {
+    stop(
+      "Shared temporal effects currently require ",
+      "temporal_effect = 'cubic_cyclic'. For a linear temporal effect, ",
+      "set temporal_shared = FALSE.",
+      call. = FALSE
+    )
+  }
+
+  if (temporal_effect != "none" && spatial_effect != "none" &&
+      temporal_shared != spatial_shared) {
+    stop(
+      "Spatiotemporal models require temporal_shared and spatial_shared ",
+      "to have the same value.",
+      call. = FALSE
+    )
+  }
+
+  if (spatial_effect == "coordinates" && !spatial_shared) {
+    stop(
+      "Separate coordinate-trend parameters are not supported. ",
+      "Use spatial_shared = TRUE or spatial_effect = 'autocorrelation' ",
+      "with spatial_shared = FALSE.",
+      call. = FALSE
+    )
+  }
+
+
+
+
+
+  # ==========================================================
+
+  # Validate spatial priors
+
+  # ==========================================================
+
+
+
+  if (
+
+    length(spatial_range_prior) != 2 ||
+
+    any(!is.finite(spatial_range_prior)) ||
+
+    spatial_range_prior[1] <= 0 ||
+
+    spatial_range_prior[2] <= spatial_range_prior[1]
+
+  ) {
+
+
+
+    stop(
+
+      "'spatial_range_prior' must contain two finite ",
+
+      "positive values with upper > lower.",
+
+      call. = FALSE
 
     )
 
 
 
-
-
-    # ==========================================================
-
-    # Validate distributions
-
-    # ==========================================================
+  }
 
 
 
-    biomass_distribution <- match.arg(
 
-        biomass_distribution,
 
-        choices = c(
+  if (
 
-            "normal",
+    length(spatial_sigma_prior) != 1 ||
 
-            "lognormal"
+    !is.finite(spatial_sigma_prior) ||
 
-        )
+    spatial_sigma_prior <= 0
 
-    )
+  ) {
 
 
 
-    diversity_distribution <- match.arg(
+    stop(
 
-        diversity_distribution,
+      "'spatial_sigma_prior' must be a single positive ",
 
-        choices = c(
+      "finite value.",
 
-            "normal",
-
-            "poisson",
-
-            "negative_binomial"
-
-        )
+      call. = FALSE
 
     )
 
 
 
-
-
-    # ==========================================================
-
-    # Validate spatial effect
-
-    # ==========================================================
+  }
 
 
 
-    spatial_effect <- match.arg(
 
-        spatial_effect,
 
-        choices = c(
+  # ==========================================================
 
-            "none",
+  # Validate modelling data
 
-            "coordinates",
+  # ==========================================================
 
-            "autocorrelation"
 
-        )
+
+  if (!is.data.frame(modelling_data)) {
+
+
+
+    stop(
+
+      "'modelling_data' must be a data.frame.",
+
+      call. = FALSE
 
     )
 
 
 
+  }
 
 
-    # ==========================================================
 
-    # Validate spatial priors
 
-    # ==========================================================
 
+  if (nrow(modelling_data) == 0) {
 
 
-    if (
 
-        length(spatial_range_prior) != 2 ||
+    stop(
 
-        any(!is.finite(spatial_range_prior)) ||
+      "'modelling_data' contains no rows.",
 
-        spatial_range_prior[1] <= 0 ||
-
-        spatial_range_prior[2] <= spatial_range_prior[1]
-
-    ) {
-
-
-
-        stop(
-
-            "'spatial_range_prior' must contain two finite ",
-
-            "positive values with upper > lower.",
-
-            call. = FALSE
-
-        )
-
-
-
-    }
-
-
-
-
-
-    if (
-
-        length(spatial_sigma_prior) != 1 ||
-
-        !is.finite(spatial_sigma_prior) ||
-
-        spatial_sigma_prior <= 0
-
-    ) {
-
-
-
-        stop(
-
-            "'spatial_sigma_prior' must be a single positive ",
-
-            "finite value.",
-
-            call. = FALSE
-
-        )
-
-
-
-    }
-
-
-
-
-
-    # ==========================================================
-
-    # Validate modelling data
-
-    # ==========================================================
-
-
-
-    if (!is.data.frame(modelling_data)) {
-
-
-
-        stop(
-
-            "'modelling_data' must be a data.frame.",
-
-            call. = FALSE
-
-        )
-
-
-
-    }
-
-
-
-
-
-    if (nrow(modelling_data) == 0) {
-
-
-
-        stop(
-
-            "'modelling_data' contains no rows.",
-
-            call. = FALSE
-
-        )
-
-
-
-    }
-
-
-
-
-
-    # ==========================================================
-
-    # Validate model covariates
-
-    # ==========================================================
-
-
-
-    missing_covariates <- setdiff(
-
-        modelCovs,
-
-        names(modelling_data)
+      call. = FALSE
 
     )
 
 
 
-    if (length(missing_covariates) > 0) {
-
-
-
-        stop(
-
-            "The following model covariates were not found in ",
-
-            "'modelling_data': ",
-
-            paste(
-
-                missing_covariates,
-
-                collapse = ", "
-
-            ),
-
-            call. = FALSE
-
-        )
-
-
-
-    }
+  }
 
 
 
 
 
-    # ==========================================================
+  # ==========================================================
 
-    # Validate covariate types
+  # Validate model covariates
 
-    # ==========================================================
-
-
-
-    if (is.null(covariate_types)) {
+  # ==========================================================
 
 
 
-        covariate_types <- setNames(
+  missing_covariates <- setdiff(
 
-            rep(
+    modelCovs,
 
-                "continuous",
+    names(modelling_data)
 
-                length(modelCovs)
-
-            ),
-
-            modelCovs
-
-        )
+  )
 
 
 
-    }
+  if (length(missing_covariates) > 0) {
 
 
 
+    stop(
 
+      "The following model covariates were not found in ",
 
-    missing_types <- setdiff(
+      "'modelling_data': ",
 
-        modelCovs,
+      paste(
 
-        names(covariate_types)
+        missing_covariates,
+
+        collapse = ", "
+
+      ),
+
+      call. = FALSE
 
     )
 
 
 
-    if (length(missing_types) > 0) {
-
-
-
-        stop(
-
-            "No covariate type supplied for: ",
-
-            paste(
-
-                missing_types,
-
-                collapse = ", "
-
-            ),
-
-            call. = FALSE
-
-        )
-
-
-
-    }
+  }
 
 
 
 
 
-    invalid_types <- setdiff(
+  # ==========================================================
 
-        unique(
+  # Validate covariate types
 
-            covariate_types[modelCovs]
+  # ==========================================================
+
+
+
+  if (is.null(covariate_types)) {
+
+
+
+    covariate_types <- setNames(
+
+      rep(
+
+        "continuous",
+
+        length(modelCovs)
+
+      ),
+
+      modelCovs
+
+    )
+
+
+
+  }
+
+
+
+
+
+  missing_types <- setdiff(
+
+    modelCovs,
+
+    names(covariate_types)
+
+  )
+
+
+
+  if (length(missing_types) > 0) {
+
+
+
+    stop(
+
+      "No covariate type supplied for: ",
+
+      paste(
+
+        missing_types,
+
+        collapse = ", "
+
+      ),
+
+      call. = FALSE
+
+    )
+
+
+
+  }
+
+
+
+
+
+  invalid_types <- setdiff(
+
+    unique(
+
+      covariate_types[modelCovs]
+
+    ),
+
+    c(
+
+      "continuous",
+
+      "categorical"
+
+    )
+
+  )
+
+
+
+  if (length(invalid_types) > 0) {
+
+
+
+    stop(
+
+      "Invalid covariate type(s): ",
+
+      paste(
+
+        invalid_types,
+
+        collapse = ", "
+
+      ),
+
+      ". Allowed types are 'continuous' and 'categorical'.",
+
+      call. = FALSE
+
+    )
+
+
+
+  }
+
+
+
+
+
+  # ==========================================================
+
+  # Validate spatial coordinates
+
+  #
+
+  # Only required when a spatial effect is requested.
+
+  # ==========================================================
+
+
+
+  if (spatial_effect != "none") {
+
+
+
+    required_spatial_columns <- c(
+
+      longitude_col,
+
+      latitude_col
+
+    )
+
+
+
+    missing_spatial_columns <- setdiff(
+
+      required_spatial_columns,
+
+      names(modelling_data)
+
+    )
+
+
+
+    if (length(missing_spatial_columns) > 0) {
+
+
+
+      stop(
+
+        "The following spatial coordinate columns were ",
+
+        "not found in 'modelling_data': ",
+
+        paste(
+
+          missing_spatial_columns,
+
+          collapse = ", "
 
         ),
 
-        c(
+        call. = FALSE
 
-            "continuous",
+      )
 
-            "categorical"
 
-        )
+
+    }
+
+
+
+    if (
+
+      !is.numeric(modelling_data[[longitude_col]]) ||
+
+      !is.numeric(modelling_data[[latitude_col]])
+
+    ) {
+
+
+
+      stop(
+
+        "Spatial coordinate columns must be numeric.",
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+    if (
+
+      any(!is.finite(
+
+        modelling_data[[longitude_col]]
+
+      )) ||
+
+      any(!is.finite(
+
+        modelling_data[[latitude_col]]
+
+      ))
+
+    ) {
+
+
+
+      stop(
+
+        "Spatial coordinates contain NA, NaN, or Inf values.",
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+  }
+
+
+
+
+
+  # ==========================================================
+
+  # Extract response variables
+
+  # ==========================================================
+
+
+
+  biomass <- NULL
+
+
+
+  diversity <- NULL
+
+
+
+
+
+  # ----------------------------------------------------------
+
+  # Biomass
+
+  # ----------------------------------------------------------
+
+
+
+  if (response %in% c(
+
+    "biomass",
+
+    "both"
+
+  )) {
+
+
+
+    if (!biomass_col %in% names(modelling_data)) {
+
+
+
+      stop(
+
+        "Biomass column not found: ",
+
+        biomass_col,
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+    biomass <- modelling_data[[biomass_col]]
+
+
+
+  }
+
+
+
+
+
+  # ----------------------------------------------------------
+
+  # Diversity
+
+  # ----------------------------------------------------------
+
+
+
+  if (response %in% c(
+
+    "diversity",
+
+    "both"
+
+  )) {
+
+
+
+    if (is.null(diversity_col)) {
+
+
+
+      stop(
+
+        "diversity_col must be supplied when ",
+
+        "response includes diversity.",
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+    if (!diversity_col %in% names(modelling_data)) {
+
+
+
+      stop(
+
+        "Diversity column not found: ",
+
+        diversity_col,
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+    diversity <- modelling_data[[diversity_col]]
+
+
+
+  }
+
+
+
+
+
+  # ==========================================================
+
+  # Replicate number
+
+  # ==========================================================
+
+
+
+  replicates <- NULL
+
+
+
+  if (!is.null(replicate_col)) {
+
+
+
+    if (!replicate_col %in% names(modelling_data)) {
+
+
+
+      stop(
+
+        "Replicate column not found: ",
+
+        replicate_col,
+
+        call. = FALSE
+
+      )
+
+
+
+    }
+
+
+
+    required_replicate_cols <- c(
+
+      "locality",
+
+      "year"
 
     )
 
 
 
-    if (length(invalid_types) > 0) {
+    missing_replicate_cols <- setdiff(
+
+      required_replicate_cols,
+
+      names(modelling_data)
+
+    )
 
 
 
-        stop(
+    if (length(missing_replicate_cols) > 0) {
 
-            "Invalid covariate type(s): ",
 
-            paste(
 
-                invalid_types,
+      stop(
 
-                collapse = ", "
+        "The following columns are required to construct ",
 
-            ),
+        "replicate IDs: ",
 
-            ". Allowed types are 'continuous' and 'categorical'.",
+        paste(
 
-            call. = FALSE
+          missing_replicate_cols,
 
-        )
+          collapse = ", "
+
+        ),
+
+        call. = FALSE
+
+      )
 
 
 
@@ -672,501 +1059,155 @@ run_insect_nimble_model <- function(
 
 
 
+    replicates <- modelling_data |>
 
-
-    # ==========================================================
-
-    # Validate spatial coordinates
-
-    #
-
-    # Only required when a spatial effect is requested.
-
-    # ==========================================================
+      dplyr::mutate(
 
 
 
-    if (spatial_effect != "none") {
+        replicate_number = as.numeric(
 
+          sub(
 
+            ".*-",
 
-        required_spatial_columns <- c(
+            "",
 
-            longitude_col,
+            .data[[replicate_col]]
 
-            latitude_col
+          )
 
         )
 
 
 
-        missing_spatial_columns <- setdiff(
+      ) |>
 
-            required_spatial_columns,
+      dplyr::group_by(
 
-            names(modelling_data)
+        locality,
+
+        year
+
+      ) |>
+
+      dplyr::mutate(
+
+
+
+        sampling_id = as.numeric(
+
+          as.factor(
+
+            replicate_number
+
+          )
 
         )
 
 
 
-        if (length(missing_spatial_columns) > 0) {
+      ) |>
 
+      dplyr::ungroup() |>
 
+      dplyr::pull(
 
-            stop(
+        sampling_id
 
-                "The following spatial coordinate columns were ",
+      )
 
-                "not found in 'modelling_data': ",
 
-                paste(
 
-                    missing_spatial_columns,
+  }
 
-                    collapse = ", "
 
-                ),
 
-                call. = FALSE
+  # ==========================================================
+  # Temporal effect
+  # ==========================================================
 
-            )
+  temporal_data <- NULL
 
+  # These are retained for the NIMBLE constants if needed
+  temporal_basis_penalized <- NULL
+  temporal_penalty_eigenvalues <- NULL
+  n_temporal_basis <- 0L
 
+  # Original mgcv objects
+  temporal_basis <- NULL
+  temporal_penalty <- NULL
 
-        }
-
-
-
-        if (
-
-            !is.numeric(modelling_data[[longitude_col]]) ||
-
-            !is.numeric(modelling_data[[latitude_col]])
-
-        ) {
-
-
-
-            stop(
-
-                "Spatial coordinate columns must be numeric.",
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        if (
-
-            any(!is.finite(
-
-                modelling_data[[longitude_col]]
-
-            )) ||
-
-            any(!is.finite(
-
-                modelling_data[[latitude_col]]
-
-            ))
-
-        ) {
-
-
-
-            stop(
-
-                "Spatial coordinates contain NA, NaN, or Inf values.",
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-    }
-
-
-
-
-
-    # ==========================================================
-
-    # Extract response variables
-
-    # ==========================================================
-
-
-
-    biomass <- NULL
-
-
-
-    diversity <- NULL
-
-
-
-
-
-    # ----------------------------------------------------------
-
-    # Biomass
-
-    # ----------------------------------------------------------
-
-
-
-    if (response %in% c(
-
-        "biomass",
-
-        "both"
-
-    )) {
-
-
-
-        if (!biomass_col %in% names(modelling_data)) {
-
-
-
-            stop(
-
-                "Biomass column not found: ",
-
-                biomass_col,
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        biomass <- modelling_data[[biomass_col]]
-
-
-
-    }
-
-
-
-
-
-    # ----------------------------------------------------------
-
-    # Diversity
-
-    # ----------------------------------------------------------
-
-
-
-    if (response %in% c(
-
-        "diversity",
-
-        "both"
-
-    )) {
-
-
-
-        if (is.null(diversity_col)) {
-
-
-
-            stop(
-
-                "diversity_col must be supplied when ",
-
-                "response includes diversity.",
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        if (!diversity_col %in% names(modelling_data)) {
-
-
-
-            stop(
-
-                "Diversity column not found: ",
-
-                diversity_col,
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        diversity <- modelling_data[[diversity_col]]
-
-
-
-    }
-
-
-
-
-
-    # ==========================================================
-
-    # Replicate number
-
-    # ==========================================================
-
-
-
-    replicates <- NULL
-
-
-
-    if (!is.null(replicate_col)) {
-
-
-
-        if (!replicate_col %in% names(modelling_data)) {
-
-
-
-            stop(
-
-                "Replicate column not found: ",
-
-                replicate_col,
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        required_replicate_cols <- c(
-
-            "locality",
-
-            "year"
-
-        )
-
-
-
-        missing_replicate_cols <- setdiff(
-
-            required_replicate_cols,
-
-            names(modelling_data)
-
-        )
-
-
-
-        if (length(missing_replicate_cols) > 0) {
-
-
-
-            stop(
-
-                "The following columns are required to construct ",
-
-                "replicate IDs: ",
-
-                paste(
-
-                    missing_replicate_cols,
-
-                    collapse = ", "
-
-                ),
-
-                call. = FALSE
-
-            )
-
-
-
-        }
-
-
-
-        replicates <- modelling_data |>
-
-            dplyr::mutate(
-
-
-
-                replicate_number = as.numeric(
-
-                    sub(
-
-                        ".*-",
-
-                        "",
-
-                        .data[[replicate_col]]
-
-                    )
-
-                )
-
-
-
-            ) |>
-
-            dplyr::group_by(
-
-                locality,
-
-                year
-
-            ) |>
-
-            dplyr::mutate(
-
-
-
-                sampling_id = as.numeric(
-
-                    as.factor(
-
-                        replicate_number
-
-                    )
-
-                )
-
-
-
-            ) |>
-
-            dplyr::ungroup() |>
-
-            dplyr::pull(
-
-                sampling_id
-
-            )
-
-
-
-    }
-
-
-
-# ==========================================================
-# Temporal effect
-# ==========================================================
-
-temporal_data <- NULL
-
-# These are retained for the NIMBLE constants if needed
-temporal_basis_penalized <- NULL
-temporal_penalty_eigenvalues <- NULL
-n_temporal_basis <- 0L
-
-# Original mgcv objects
-temporal_basis <- NULL
-temporal_penalty <- NULL
-
-temporal_effect <- match.arg(
+  temporal_effect <- match.arg(
     temporal_effect,
     choices = c(
-        "none",
-        "linear",
-        "cubic_cyclic"
+      "none",
+      "linear",
+      "cubic_cyclic"
     )
-)
+  )
 
-if (!is.numeric(temporal_basis_k) ||
-    length(temporal_basis_k) != 1L ||
-    !is.finite(temporal_basis_k) ||
-    temporal_basis_k < 4 ||
-    temporal_basis_k != as.integer(temporal_basis_k)) {
+  if (!is.numeric(temporal_basis_k) ||
+      length(temporal_basis_k) != 1L ||
+      !is.finite(temporal_basis_k) ||
+      temporal_basis_k < 4 ||
+      temporal_basis_k != as.integer(temporal_basis_k)) {
 
     stop(
-        "'temporal_basis_k' must be a single integer >= 4.",
-        call. = FALSE
+      "'temporal_basis_k' must be a single integer >= 4.",
+      call. = FALSE
     )
-}
+  }
 
-temporal_basis_k <- as.integer(
+  temporal_basis_k <- as.integer(
     temporal_basis_k
-)
+  )
 
-if (temporal_effect != "none") {
+  if (temporal_effect != "none") {
 
     if (is.null(temporal_col)) {
 
-        stop(
-            "temporal_col must be supplied when ",
-            "temporal_effect is not 'none'.",
-            call. = FALSE
-        )
+      stop(
+        "temporal_col must be supplied when ",
+        "temporal_effect is not 'none'.",
+        call. = FALSE
+      )
 
     }
 
     missing_temporal <- setdiff(
-        temporal_col,
-        names(modelling_data)
+      temporal_col,
+      names(modelling_data)
     )
 
     if (length(missing_temporal) > 0) {
 
-        stop(
-            "Temporal columns not found: ",
-            paste(
-                missing_temporal,
-                collapse = ", "
-            ),
-            call. = FALSE
-        )
+      stop(
+        "Temporal columns not found: ",
+        paste(
+          missing_temporal,
+          collapse = ", "
+        ),
+        call. = FALSE
+      )
 
     }
 
     temporal_data <- rowMeans(
-        modelling_data[
-            ,
-            temporal_col,
-            drop = FALSE
-        ],
-        na.rm = TRUE
+      modelling_data[
+        ,
+        temporal_col,
+        drop = FALSE
+      ],
+      na.rm = TRUE
     )
 
     if (any(!is.finite(temporal_data))) {
 
-        stop(
-            "Temporal data contains NA, NaN, or Inf values.",
-            call. = FALSE
-        )
+      stop(
+        "Temporal data contains NA, NaN, or Inf values.",
+        call. = FALSE
+      )
 
     }
 
@@ -1176,9 +1217,9 @@ if (temporal_effect != "none") {
 
     if (temporal_effect == "linear") {
 
-        temporal_data <- as.numeric(
-            scale(temporal_data)
-        )
+      temporal_data <- as.numeric(
+        scale(temporal_data)
+      )
 
     }
 
@@ -1338,136 +1379,110 @@ if (temporal_effect != "none") {
         )
       }
     }
-}
-    # ==========================================================
+  }
+  # ==========================================================
 
-    # Identify continuous covariates
+  # Identify continuous covariates
 
-    # ==========================================================
+  # ==========================================================
 
 
 
-    continuous_covariates <- modelCovs[
+  continuous_covariates <- modelCovs[
 
-        covariate_types[modelCovs] == "continuous"
+    covariate_types[modelCovs] == "continuous"
 
-    ]
+  ]
 
 
 
 
 
-    # ==========================================================
+  # ==========================================================
 
-    # Scale continuous covariates
+  # Scale continuous covariates
 
-    # ==========================================================
+  # ==========================================================
 
 
 
-    if (length(continuous_covariates) > 0) {
+  if (length(continuous_covariates) > 0) {
 
 
 
-        scale_covariate <- function(x) {
+    scale_covariate <- function(x) {
 
 
 
-            if (!is.numeric(x)) {
+      if (!is.numeric(x)) {
 
 
 
-                stop(
+        stop(
 
-                    "Continuous covariates must be numeric.",
+          "Continuous covariates must be numeric.",
 
-                    call. = FALSE
+          call. = FALSE
 
-                )
+        )
 
 
 
-            }
+      }
 
 
 
-            mean_x <- mean(
+      mean_x <- mean(
 
-                x,
+        x,
 
-                na.rm = TRUE
+        na.rm = TRUE
 
-            )
+      )
 
 
 
-            sd_x <- sd(
+      sd_x <- sd(
 
-                x,
+        x,
 
-                na.rm = TRUE
+        na.rm = TRUE
 
-            )
+      )
 
 
 
-            if (
+      if (
 
-                !is.finite(sd_x) ||
+        !is.finite(sd_x) ||
 
-                sd_x == 0
+        sd_x == 0
 
-            ) {
+      ) {
 
 
 
-                stop(
+        stop(
 
-                    "A continuous covariate has zero or undefined ",
+          "A continuous covariate has zero or undefined ",
 
-                    "standard deviation.",
+          "standard deviation.",
 
-                    call. = FALSE
+          call. = FALSE
 
-                )
+        )
 
 
 
-            }
+      }
 
 
 
-            as.numeric(
+      as.numeric(
 
-                (x - mean_x) / sd_x
+        (x - mean_x) / sd_x
 
-            )
-
-
-
-        }
-
-
-
-
-
-        modelling_data <- modelling_data |>
-
-            dplyr::mutate(
-
-                dplyr::across(
-
-                    dplyr::all_of(
-
-                        continuous_covariates
-
-                    ),
-
-                    scale_covariate
-
-                )
-
-            )
+      )
 
 
 
@@ -1477,13 +1492,39 @@ if (temporal_effect != "none") {
 
 
 
-    # ==========================================================
+    modelling_data <- modelling_data |>
 
-    # Create NIMBLE model file
+      dplyr::mutate(
 
-    # ==========================================================
+        dplyr::across(
 
-model_file <- create_insect_nimble_model(
+          dplyr::all_of(
+
+            continuous_covariates
+
+          ),
+
+          scale_covariate
+
+        )
+
+      )
+
+
+
+  }
+
+
+
+
+
+  # ==========================================================
+
+  # Create NIMBLE model file
+
+  # ==========================================================
+
+  model_file <- create_insect_nimble_model(
 
     modelCovs = modelCovs,
 
@@ -1494,6 +1535,8 @@ model_file <- create_insect_nimble_model(
     random_replicate = random_replicate,
 
     temporal_effect = temporal_effect,
+
+    temporal_shared = temporal_shared,
 
     # Supply the original mgcv basis and penalty
     temporal_basis = temporal_basis,
@@ -1516,51 +1559,55 @@ model_file <- create_insect_nimble_model(
 
     spatial_effect = spatial_effect,
 
-    spatial_shared = spatial_shared
+    spatial_shared = spatial_shared,
 
-)
+    spatial_range_prior = spatial_range_prior,
+
+    spatial_sigma_prior = spatial_sigma_prior
+
+  )
 
 
-    if (temporal_effect == "cubic_cyclic") {
+  if (temporal_effect == "cubic_cyclic") {
 
-      temporal_basis_penalized <-
-        model_file$temporal_basis_penalized
+    temporal_basis_penalized <-
+      model_file$temporal_basis_penalized
 
-      temporal_penalty_eigenvalues <-
-        model_file$temporal_penalty_eigenvalues
+    temporal_penalty_eigenvalues <-
+      model_file$temporal_penalty_eigenvalues
 
-      n_temporal_basis <-
-        model_file$n_temporal_basis
+    n_temporal_basis <-
+      model_file$n_temporal_basis
 
-      if (is.null(temporal_basis_penalized)) {
-        stop(
-          "The model constructor did not return ",
-          "'temporal_basis_penalized'.",
-          call. = FALSE
-        )
-      }
-
-      if (!is.matrix(temporal_basis_penalized) ||
-          nrow(temporal_basis_penalized) != length(temporal_data) ||
-          ncol(temporal_basis_penalized) != n_temporal_basis ||
-          length(temporal_penalty_eigenvalues) != n_temporal_basis) {
-        stop(
-          "The projected temporal basis or its eigenvalues ",
-          "have inconsistent dimensions.",
-          call. = FALSE
-        )
-      }
+    if (is.null(temporal_basis_penalized)) {
+      stop(
+        "The model constructor did not return ",
+        "'temporal_basis_penalized'.",
+        call. = FALSE
+      )
     }
 
+    if (!is.matrix(temporal_basis_penalized) ||
+        nrow(temporal_basis_penalized) != length(temporal_data) ||
+        ncol(temporal_basis_penalized) != n_temporal_basis ||
+        length(temporal_penalty_eigenvalues) != n_temporal_basis) {
+      stop(
+        "The projected temporal basis or its eigenvalues ",
+        "have inconsistent dimensions.",
+        call. = FALSE
+      )
+    }
+  }
 
 
-    # ==========================================================
 
-    # Create NIMBLE data
+  # ==========================================================
 
-    # ==========================================================
+  # Create NIMBLE data
 
-data <- create_insect_nimble_data(
+  # ==========================================================
+
+  data <- create_insect_nimble_data(
 
     modelling_data = modelling_data,
 
@@ -1592,451 +1639,454 @@ data <- create_insect_nimble_data(
 
     latitude_col = latitude_col
 
-)
+  )
 
 
 
 
-    # ==========================================================
+  # ==========================================================
 
-    # Create NIMBLE constants
+  # Create NIMBLE constants
 
-    #
+  #
 
-    # Important:
+  # Important:
 
-    # For autocorrelation, this function calculates ONLY the
+  # For autocorrelation, this function calculates ONLY the
 
-    # fixed distance matrix. The spatial covariance matrix is
+  # fixed distance matrix. The spatial covariance matrix is
 
-    # constructed inside NIMBLE from estimated rho and sigma.
+  # constructed inside NIMBLE from estimated rho and sigma.
 
-    # ==========================================================
+  # ==========================================================
 
 
 
-    constants <- create_insect_nimble_constants(
+  constants <- create_insect_nimble_constants(
 
 
 
-        modelling_data = modelling_data,
+    modelling_data = modelling_data,
 
 
 
-        modelCovs = modelCovs,
+    modelCovs = modelCovs,
 
 
 
-        covariate_types = covariate_types,
+    covariate_types = covariate_types,
 
 
 
-        replicate_col = replicate_col,
+    replicate_col = replicate_col,
 
 
 
-        random_year = random_year,
+    random_year = random_year,
 
 
 
-        random_locality = random_locality,
+    random_locality = random_locality,
 
 
 
-        random_replicate = random_replicate,
+    random_replicate = random_replicate,
 
 
 
-        # ------------------------------------------------------
+    # ------------------------------------------------------
 
-        # Spatial structure
+    # Spatial structure
 
-        # ------------------------------------------------------
+    # ------------------------------------------------------
 
 
 
-        spatial_effect = spatial_effect,
+    spatial_effect = spatial_effect,
 
 
 
-        longitude_col = longitude_col,
+    longitude_col = longitude_col,
 
 
 
-        latitude_col = latitude_col
+    latitude_col = latitude_col
 
 
 
-    )
+  )
 
 
 
 
 
-    # ==========================================================
+  # ==========================================================
 
-    if (temporal_effect == "cubic_cyclic") {
-        constants <- c(
-            constants,
-            list(
-                n_temporal_basis = n_temporal_basis,
-                temporal_basis_penalized = temporal_basis_penalized,
-                temporal_penalty_eigenvalues = temporal_penalty_eigenvalues
-            )
-        )
-    }
-
-
-    # Create initial values
-
-    # ==========================================================
-
-
-
-    initial_values <- create_insect_nimble_initial_values(
-
-
-
-        modelling_data = modelling_data,
-
-
-
-        modelCovs = modelCovs,
-
-
-
-        covariate_types = covariate_types,
-
-
-
-        response = response,
-
-
-
-        biomass_col = biomass_col,
-
-
-
-        diversity_col = diversity_col,
-
-
-
-        biomass_distribution = biomass_distribution,
-
-
-
-        diversity_distribution = diversity_distribution,
-
-
-
-        random_year = random_year,
-
-
-
-        random_locality = random_locality,
-
-
-
-        random_replicate = random_replicate,
-
-
-
-        temporal_data = temporal_data,
+  if (temporal_effect == "cubic_cyclic") {
+    constants <- c(
+      constants,
+      list(
+        n_temporal_basis = n_temporal_basis,
         temporal_basis_penalized = temporal_basis_penalized,
+        temporal_penalty_eigenvalues = temporal_penalty_eigenvalues
+      )
+    )
+  }
+
+
+  # Create initial values
+
+  # ==========================================================
 
 
 
-        temporal_effect = temporal_effect,
+  initial_values <- create_insect_nimble_initial_values(
 
 
 
-        seed = seed,
+    modelling_data = modelling_data,
 
 
 
-        # ------------------------------------------------------
-
-        # Spatial structure
-
-        # ------------------------------------------------------
+    modelCovs = modelCovs,
 
 
 
-        spatial_effect = spatial_effect,
+    covariate_types = covariate_types,
 
 
 
-        spatial_shared = spatial_shared,
+    response = response,
 
 
 
-        longitude_col = longitude_col,
+    biomass_col = biomass_col,
 
 
 
-        latitude_col = latitude_col,
+    diversity_col = diversity_col,
 
 
 
-        spatial_range_prior = spatial_range_prior,
+    biomass_distribution = biomass_distribution,
 
 
 
-        spatial_sigma_prior = spatial_sigma_prior
+    diversity_distribution = diversity_distribution,
 
 
+
+    random_year = random_year,
+
+
+
+    random_locality = random_locality,
+
+
+
+    random_replicate = random_replicate,
+
+
+
+    temporal_data = temporal_data,
+    temporal_basis_penalized = temporal_basis_penalized,
+
+
+
+    temporal_effect = temporal_effect,
+
+    temporal_shared = if (temporal_effect == "none") FALSE else temporal_shared,
+
+
+
+    seed = seed,
+
+
+
+    # ------------------------------------------------------
+
+    # Spatial structure
+
+    # ------------------------------------------------------
+
+
+
+    spatial_effect = spatial_effect,
+
+
+
+    spatial_shared = spatial_shared,
+
+
+
+    longitude_col = longitude_col,
+
+
+
+    latitude_col = latitude_col,
+
+
+
+    spatial_range_prior = spatial_range_prior,
+
+
+
+    spatial_sigma_prior = spatial_sigma_prior
+
+
+
+  )
+
+
+
+
+
+  # ==========================================================
+
+  # Read generated NIMBLE model
+
+  # ==========================================================
+
+
+
+  if (!file.exists(model_file$file)) {
+
+
+
+    stop(
+
+      "NIMBLE model file was not found:\n",
+
+      model_file$file,
+
+      call. = FALSE
 
     )
 
 
 
+  }
 
 
-    # ==========================================================
 
-    # Read generated NIMBLE model
 
-    # ==========================================================
 
+  source(
 
+    model_file$file,
 
-    if (!file.exists(model_file$file)) {
+    local = TRUE
 
+  )
 
 
-        stop(
 
-            "NIMBLE model file was not found:\n",
 
-            model_file$file,
 
-            call. = FALSE
+  model_code <- biomass_diversity_model
 
-        )
 
 
 
-    }
 
+  # ==========================================================
 
+  # Build NIMBLE model
 
+  # ==========================================================
 
 
-    source(
 
-        model_file$file,
+  nimble_model <- nimble::nimbleModel(
 
-        local = TRUE
 
-    )
 
+    code = model_code,
 
 
 
+    constants = constants,
 
-    model_code <- biomass_diversity_model
 
 
+    data = data,
 
 
 
-    # ==========================================================
+    inits = initial_values,
 
-    # Build NIMBLE model
 
-    # ==========================================================
 
+    check = TRUE,
 
 
-    nimble_model <- nimble::nimbleModel(
 
+    calculate = FALSE
 
 
-        code = model_code,
 
+  )
 
 
-        constants = constants,
 
+  nimble_model$initializeInfo()
 
 
-        data = data,
 
+  # ==========================================================
 
+  # Compile NIMBLE model
 
-        inits = initial_values,
+  # ==========================================================
 
 
 
-        check = TRUE,
+  compiled_model <- nimble::compileNimble(
 
+    nimble_model
 
+  )
 
-        calculate = FALSE
 
 
 
-    )
 
+  # ==========================================================
 
+  # Stop here if MCMC is not requested
 
-    nimble_model$initializeInfo()
+  # ==========================================================
 
 
+  if (!run_mcmc) {
 
-    # ==========================================================
-
-    # Compile NIMBLE model
-
-    # ==========================================================
-
-
-
-    compiled_model <- nimble::compileNimble(
-
-        nimble_model
-
-    )
-
-
-
-
-
-    # ==========================================================
-
-    # Stop here if MCMC is not requested
-
-    # ==========================================================
-
-
-    if (!run_mcmc) {
-
-        return(
-            list(
-                model_file = model_file,
-                model_code = model_code,
-                data = data,
-                constants = constants,
-                initial_values = initial_values,
-                model = nimble_model,
-                compiled_model = compiled_model,
-                response = response,
-                biomass_distribution = biomass_distribution,
-                diversity_distribution = diversity_distribution,
-                temporal_effect = temporal_effect,
-                temporal_basis_k = temporal_basis_k,
-                temporal_basis_penalized = temporal_basis_penalized,
-                temporal_penalty_eigenvalues = temporal_penalty_eigenvalues,
-                spatial_effect = spatial_effect,
-                spatial_shared = spatial_shared
-            )
-        )
-    }
-
-
-    # ==========================================================
-    # Configure MCMC
-    # ==========================================================
-
-    mcmc_conf <- nimble::configureMCMC(
-        nimble_model,
-        enableWAIC = run_waic
-    )
-
-    # ==========================================================
-    # Build MCMC
-    # ==========================================================
-
-    mcmc <- nimble::buildMCMC(
-        mcmc_conf
-    )
-
-    # ==========================================================
-    # Compile MCMC
-    # ==========================================================
-
-    compiled_mcmc <- nimble::compileNimble(
-        mcmc,
-        project = nimble_model
-    )
-
-    # ==========================================================
-    # Run MCMC
-    # ==========================================================
-    samples <- nimble::runMCMC(
-
-        compiled_mcmc,
-
-        niter = niter,
-
-        nburnin = nburnin,
-
-        thin = thin,
-
-        nchains = nchains,
-
-        setSeed = TRUE,
-
-        samplesAsCodaMCMC = TRUE,
-
-        summary = TRUE,
-
-        WAIC = run_waic
-    )
-
-
-    # ==========================================================
-
-    # Return everything
-
-    # ==========================================================
-
-    list(
-
+    return(
+      list(
         model_file = model_file,
-
         model_code = model_code,
-
         data = data,
-
         constants = constants,
-
         initial_values = initial_values,
-
-        samples = samples,
-
+        model = nimble_model,
+        compiled_model = compiled_model,
         response = response,
-
         biomass_distribution = biomass_distribution,
-
         diversity_distribution = diversity_distribution,
         temporal_effect = temporal_effect,
         temporal_basis_k = temporal_basis_k,
         temporal_basis_penalized = temporal_basis_penalized,
         temporal_penalty_eigenvalues = temporal_penalty_eigenvalues,
-
-        modelCovs = modelCovs,
-
-        covariate_types = covariate_types,
-
-        # ------------------------------------------------------
-
-        # Spatial model information
-
-        # ------------------------------------------------------
-
         spatial_effect = spatial_effect,
-
-        spatial_shared = spatial_shared,
-
-        longitude_col = longitude_col,
-
-        latitude_col = latitude_col,
-
-        spatial_range_prior = spatial_range_prior,
-
-        spatial_sigma_prior = spatial_sigma_prior
-
+        spatial_shared = spatial_shared
+      )
     )
+  }
+
+
+  # ==========================================================
+  # Configure MCMC
+  # ==========================================================
+
+  mcmc_conf <- nimble::configureMCMC(
+    nimble_model,
+    enableWAIC = run_waic
+  )
+
+  # ==========================================================
+  # Build MCMC
+  # ==========================================================
+
+  mcmc <- nimble::buildMCMC(
+    mcmc_conf
+  )
+
+  # ==========================================================
+  # Compile MCMC
+  # ==========================================================
+
+  compiled_mcmc <- nimble::compileNimble(
+    mcmc,
+    project = nimble_model
+  )
+
+  # ==========================================================
+  # Run MCMC
+  # ==========================================================
+  samples <- nimble::runMCMC(
+
+    compiled_mcmc,
+
+    niter = niter,
+
+    nburnin = nburnin,
+
+    thin = thin,
+
+    nchains = nchains,
+
+    setSeed = TRUE,
+
+    samplesAsCodaMCMC = TRUE,
+
+    summary = TRUE,
+
+    WAIC = run_waic
+  )
+
+
+  # ==========================================================
+
+  # Return everything
+
+  # ==========================================================
+
+  list(
+
+    model_file = model_file,
+
+    model_code = model_code,
+
+    data = data,
+
+    constants = constants,
+
+    initial_values = initial_values,
+
+    samples = samples,
+
+    response = response,
+
+    biomass_distribution = biomass_distribution,
+
+    diversity_distribution = diversity_distribution,
+    temporal_effect = temporal_effect,
+    temporal_shared = temporal_shared,
+    temporal_basis_k = temporal_basis_k,
+    temporal_basis_penalized = temporal_basis_penalized,
+    temporal_penalty_eigenvalues = temporal_penalty_eigenvalues,
+
+    modelCovs = modelCovs,
+
+    covariate_types = covariate_types,
+
+    # ------------------------------------------------------
+
+    # Spatial model information
+
+    # ------------------------------------------------------
+
+    spatial_effect = spatial_effect,
+
+    spatial_shared = spatial_shared,
+
+    longitude_col = longitude_col,
+
+    latitude_col = latitude_col,
+
+    spatial_range_prior = spatial_range_prior,
+
+    spatial_sigma_prior = spatial_sigma_prior
+
+  )
 
 }
