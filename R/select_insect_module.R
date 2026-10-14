@@ -398,16 +398,16 @@ select_insect_module <- function(
   # --------------------------------------------------------
 
   # Shared linear temporal effects are not implemented.
-  if (identical(config$temporal_effect, "linear") &&
-      config$temporal_shared) {
-
-    stop(
-      "Shared temporal effects currently require ",
-      "temporal_effect = 'cubic_cyclic'. ",
-      "For a linear temporal effect, set temporal_shared = FALSE.",
-      call. = FALSE
-    )
-  }
+  # if (identical(config$temporal_effect, "linear") &&
+  #     config$temporal_shared) {
+  #
+  #   stop(
+  #     "Shared temporal effects currently require ",
+  #     "temporal_effect = 'cubic_cyclic'. ",
+  #     "For a linear temporal effect, set temporal_shared = FALSE.",
+  #     call. = FALSE
+  #   )
+  # }
 
   # Sharing is not meaningful when an effect is inactive.
   if (identical(config$temporal_effect, "none") &&
@@ -429,16 +429,16 @@ select_insect_module <- function(
   }
 
   # Separate coordinate-based spatial trends are not implemented.
-  if (identical(config$spatial_effect, "coordinates") &&
-      !config$spatial_shared) {
-
-    stop(
-      "Separate coordinate-based spatial effects are not supported. ",
-      "Use spatial_shared = TRUE or choose ",
-      "spatial_effect = 'autocorrelation'.",
-      call. = FALSE
-    )
-  }
+  # if (identical(config$spatial_effect, "coordinates") &&
+  #     !config$spatial_shared) {
+  #
+  #   stop(
+  #     "Separate coordinate-based spatial effects are not supported. ",
+  #     "Use spatial_shared = TRUE or choose ",
+  #     "spatial_effect = 'autocorrelation'.",
+  #     call. = FALSE
+  #   )
+  # }
 
   # Spatiotemporal models require matching sharing structures.
   has_temporal <- !identical(
@@ -450,20 +450,20 @@ select_insect_module <- function(
     config$spatial_effect,
     "none"
   )
-
-  if (has_temporal &&
-      has_spatial &&
-      !identical(
-        config$temporal_shared,
-        config$spatial_shared
-      )) {
-
-    stop(
-      "Spatiotemporal models require temporal_shared and ",
-      "spatial_shared to have the same value.",
-      call. = FALSE
-    )
-  }
+  #
+  # if (has_temporal &&
+  #     has_spatial &&
+  #     !identical(
+  #       config$temporal_shared,
+  #       config$spatial_shared
+  #     )) {
+  #
+  #   stop(
+  #     "Spatiotemporal models require temporal_shared and ",
+  #     "spatial_shared to have the same value.",
+  #     call. = FALSE
+  #   )
+  # }
 
   # --------------------------------------------------------
   # 9. Report selected configuration
