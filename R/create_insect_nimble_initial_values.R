@@ -151,6 +151,8 @@ create_insect_nimble_initial_values <- function(
 
   model_structure = NULL,
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+    share_hyperparameters = FALSE,
 
   # --------------------------------------------------------------------------
   # Response specification
@@ -446,13 +448,13 @@ create_insect_nimble_initial_values <- function(
     stop("'temporal_shared' must be TRUE or FALSE.", call. = FALSE)
   }
 
-  if (isTRUE(temporal_shared) && temporal_effect != "cubic_cyclic") {
-    stop(
-      "'temporal_shared = TRUE' is supported only when ",
-      "temporal_effect = 'cubic_cyclic'.",
-      call. = FALSE
-    )
-  }
+  # if (isTRUE(temporal_shared) && temporal_effect != "cubic_cyclic") {
+  #   stop(
+  #     "'temporal_shared = TRUE' is supported only when ",
+  #     "temporal_effect = 'cubic_cyclic'.",
+  #     call. = FALSE
+  #   )
+  # }
 
 
   # ==========================================================================
@@ -1441,6 +1443,8 @@ create_insect_nimble_initial_values <- function(
       if (include_diversity) {
         initial_values[["beta_time_diversity"]] <- 0
       }
+      initial_values[["beta_time"]] <- 0
+
     }
 
     if (temporal_effect == "cubic_cyclic") {
@@ -1585,12 +1589,9 @@ create_insect_nimble_initial_values <- function(
   # shared temporal and spatial builders use shared fixed/random effects. The
   # spatiotemporal shared builder shares fixed effects but retains response-
   # specific year/locality/replicate effects in its current implementation.
-  separate_fixed <- model_structure %in% c(
-    "baseline", "temporal_separate", "spatial_separate",
-    "spatiotemporal_separate"
-  )
+  separate_fixed <- !share_fixed_effects
   separate_categorical <- separate_fixed
-  separate_random <- separate_fixed || model_structure == "spatiotemporal_shared"
+  separate_random <- !share_hyperparameters #separate_fixed || model_structure == "spatiotemporal_shared"
 
   if (separate_fixed && "beta" %in% names(initial_values)) {
     shared_beta <- initial_values[["beta"]]

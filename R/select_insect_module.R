@@ -208,6 +208,7 @@ select_insect_module <- function(
   # --------------------------------------------------------
 
   valid_modules <- c(
+    "baseline",
     "temporal_linear",
     "temporal_cyclic",
     "spatial_coordinates",
@@ -300,22 +301,30 @@ select_insect_module <- function(
 
   if (is.null(module)) {
 
+    config_name <- "null"
+
+  } else if (module == "baseline"){
+
     config_name <- "baseline"
+    config$random_locality <- FALSE
 
   } else if (module == "temporal_linear") {
 
     config$temporal_effect <- "linear"
+    config$random_locality <- FALSE
     config_name <- module
 
   } else if (module == "temporal_cyclic") {
 
     config$temporal_effect <- "cubic_cyclic"
+    config$random_replicate <- FALSE
     config_name <- module
 
   } else if (module == "spatial_coordinates") {
 
     config$spatial_effect <- "coordinates"
     config$random_locality <- FALSE
+      config$random_locality <- FALSE
     config_name <- module
 
   } else if (module == "spatial_autocorrelation") {

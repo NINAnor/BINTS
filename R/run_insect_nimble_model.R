@@ -168,6 +168,8 @@ run_insect_nimble_model <- function(
   modelling_data,
   modelCovs,
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
 
   # ==========================================================
   # Responses
@@ -210,7 +212,7 @@ run_insect_nimble_model <- function(
   # Temporal effect
   #==========================================================
 
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "none", "linear"),
   temporal_shared = TRUE,
   temporal_basis_k = 10,
 
@@ -221,7 +223,7 @@ run_insect_nimble_model <- function(
   # "coordinates"
   # "autocorrelation"
   # ==========================================================
-  spatial_effect = "none",
+  spatial_effect = c("none", "coordinates", "autocorrelation"),
 
   # If TRUE:
   #  - coordinates: one shared spatial coordinate effect
@@ -396,32 +398,32 @@ run_insect_nimble_model <- function(
   )
 
 
-  if (temporal_effect == "linear" && temporal_shared) {
-    stop(
-      "Shared temporal effects currently require ",
-      "temporal_effect = 'cubic_cyclic'. For a linear temporal effect, ",
-      "set temporal_shared = FALSE.",
-      call. = FALSE
-    )
-  }
+  # if (temporal_effect == "linear" && temporal_shared) {
+  #   stop(
+  #     "Shared temporal effects currently require ",
+  #     "temporal_effect = 'cubic_cyclic'. For a linear temporal effect, ",
+  #     "set temporal_shared = FALSE.",
+  #     call. = FALSE
+  #   )
+  # }
 
-  if (temporal_effect != "none" && spatial_effect != "none" &&
-      temporal_shared != spatial_shared) {
-    stop(
-      "Spatiotemporal models require temporal_shared and spatial_shared ",
-      "to have the same value.",
-      call. = FALSE
-    )
-  }
+  # if (temporal_effect != "none" && spatial_effect != "none" &&
+  #     temporal_shared != spatial_shared) {
+  #   stop(
+  #     "Spatiotemporal models require temporal_shared and spatial_shared ",
+  #     "to have the same value.",
+  #     call. = FALSE
+  #   )
+  # }
 
-  if (spatial_effect == "coordinates" && !spatial_shared) {
-    stop(
-      "Separate coordinate-trend parameters are not supported. ",
-      "Use spatial_shared = TRUE or spatial_effect = 'autocorrelation' ",
-      "with spatial_shared = FALSE.",
-      call. = FALSE
-    )
-  }
+  # if (spatial_effect == "coordinates" && !spatial_shared) {
+  #   stop(
+  #     "Separate coordinate-trend parameters are not supported. ",
+  #     "Use spatial_shared = TRUE or spatial_effect = 'autocorrelation' ",
+  #     "with spatial_shared = FALSE.",
+  #     call. = FALSE
+  #   )
+  # }
 
 
 
@@ -1563,7 +1565,11 @@ run_insect_nimble_model <- function(
 
     spatial_range_prior = spatial_range_prior,
 
-    spatial_sigma_prior = spatial_sigma_prior
+    spatial_sigma_prior = spatial_sigma_prior,
+
+    share_fixed_effects = share_fixed_effects,
+
+    share_hyperparameters = share_hyperparameters
 
   )
 
@@ -1754,7 +1760,9 @@ run_insect_nimble_model <- function(
 
     covariate_types = covariate_types,
 
+    share_fixed_effects = share_fixed_effects,
 
+    share_hyperparameters = share_hyperparameters,
 
     response = response,
 

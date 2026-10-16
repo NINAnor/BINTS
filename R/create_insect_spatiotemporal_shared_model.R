@@ -234,6 +234,8 @@ create_insect_spatiotemporal_shared_model <- function(
   # --------------------------------------------------------------------------
 
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
 
   # --------------------------------------------------------------------------
   # Random effects
@@ -1765,10 +1767,10 @@ if (include_biomass) {
 
 for (i in 1:N) {
 
-  biomass[i] ~ dnorm(
+  biomass[i] ~ T(dnorm(
     mu_biomass[i],
     tau_biomass
-  )
+  ), 0, )
 
   mu_biomass[i] <- ',
       biomass_mean_expression,

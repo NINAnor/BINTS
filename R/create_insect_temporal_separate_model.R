@@ -118,6 +118,8 @@ create_insect_temporal_separate_model <- function(
   # --------------------------------------------------------------------------
 
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
 
   # --------------------------------------------------------------------------
   # Random effects
@@ -660,6 +662,22 @@ create_insect_temporal_separate_model <- function(
 
   if (n_continuous > 0) {
 
+    if(share_fixed_effects){
+
+    fixed_effect_all <- paste0(
+      "beta[",
+      seq_along(continuous_covariates),
+      "] * X[i, ",
+      seq_along(continuous_covariates),
+      "]",
+      collapse = " + "
+    )
+      
+    fixed_effect_biomass <- fixed_effect_all
+    fixed_effect_diversity <- fixed_effect_all
+      
+    } else {
+
     fixed_effect_biomass <- paste0(
       "beta_biomass[",
       seq_along(continuous_covariates),
@@ -677,14 +695,16 @@ create_insect_temporal_separate_model <- function(
       "]",
       collapse = " + "
     )
+  }
 
-  } else {
+    } else {
 
     fixed_effect_biomass <- NULL
 
     fixed_effect_diversity <- NULL
 
   }
+
 
 
   # ============================================================================
@@ -697,328 +717,6 @@ create_insect_temporal_separate_model <- function(
 
   diversity_random_terms <- character(0)
 
-
-  # ============================================================================
-  # 11. Initialise spatial effects
-  # ============================================================================
-
-  spatial_code <- character(0)
-
-  biomass_spatial_terms <- character(0)
-
-  diversity_spatial_terms <- character(0)
-
-
-  # ============================================================================
-  # 12. Spatial coordinate effects
-  # ============================================================================
-
-  if (spatial_effect == "coordinates") {
-
-    spatial_code <- c(
-      spatial_code,
-
-      '
-# =============================================================================
-# Shared spatial coordinate effect
-# =============================================================================
-
-beta_longitude_spatial ~ dnorm(
-  0,
-  0.001
-)
-
-beta_latitude_spatial ~ dnorm(
-  0,
-  0.001
-)
-
-beta_longitude_spatial_squared ~ dnorm(
-  0,
-  0.001
-)
-
-beta_latitude_spatial_squared ~ dnorm(
-  0,
-  0.001
-)
-'
-    )
-
-
-if (include_biomass) {
-
-  biomass_spatial_terms <- c(
-    biomass_spatial_terms,
-
-    "beta_longitude_spatial * longitude[i]",
-
-    "beta_longitude_spatial_squared * pow(longitude[i], 2)",
-
-    "beta_latitude_spatial * latitude[i]",
-
-    "beta_latitude_spatial_squared * pow(latitude[i], 2)"
-  )
-
-}
-
-
-if (include_diversity) {
-
-  diversity_spatial_terms <- c(
-    diversity_spatial_terms,
-
-    "beta_longitude_spatial * longitude[i]",
-
-    "beta_longitude_spatial_squared * pow(longitude[i], 2)",
-
-    "beta_latitude_spatial * latitude[i]",
-
-    "beta_latitude_spatial_squared * pow(latitude[i], 2)"
-  )
-
-}
-
-  }
-
-
-  # ============================================================================
-  # 13. Spatial autocorrelation
-  # ============================================================================
-
-  if (spatial_effect == "autocorrelation") {
-
-    # --------------------------------------------------------------------------
-    # Shared spatial process
-    # --------------------------------------------------------------------------
-
-    if (spatial_shared) {
-
-      spatial_code <- c(
-        spatial_code,
-
-        '
-# =============================================================================
-# Shared latent spatial autocorrelation
-# =============================================================================
-
-rho_spatial ~ dunif(
-  spatial_range_lower,
-  spatial_range_upper
-)
-
-sigma_spatial ~ T(
-  dnorm(
-    0,
-    spatial_sigma_precision
-  ),
-  0,
-  Inf
-)
-
-for (i in 1:n_spatial) {
-
-  for (j in 1:n_spatial) {
-
-    spatial_covariance[i, j] <-
-      sigma_spatial^2 *
-      exp(
-        -distance_matrix[i, j] /
-        rho_spatial
-      )
-
-  }
-
-}
-
-spatial_effect[1:n_spatial] ~ dmnorm(
-  mean = spatial_zero[1:n_spatial],
-  cov = spatial_covariance[
-    1:n_spatial,
-    1:n_spatial
-  ]
-)
-
-# Loadings are added conditionally below so one reference loading can be fixed.
-'
-      )
-
-
-if (include_biomass) {
-
-  # Reference loading fixed to 1 for identifiability.
-  biomass_spatial_terms <- c(
-    biomass_spatial_terms,
-    "spatial_effect[spatial_id[i]]"
-  )
-
-}
-
-if (include_diversity) {
-
-  if (include_biomass) {
-    spatial_code <- c(
-      spatial_code,
-      '
-# Estimate only the diversity loading; biomass loading is fixed to 1.
-lambda_spatial_diversity ~ dnorm(0, 1)
-'
-    )
-    diversity_spatial_terms <- c(
-      diversity_spatial_terms,
-      "lambda_spatial_diversity * spatial_effect[spatial_id[i]]"
-    )
-  } else {
-    # Single-response model: loading fixed to 1.
-    diversity_spatial_terms <- c(
-      diversity_spatial_terms,
-      "spatial_effect[spatial_id[i]]"
-    )
-  }
-
-}
-
-    }
-
-
-  # --------------------------------------------------------------------------
-  # Separate spatial processes
-  # --------------------------------------------------------------------------
-
-  if (!spatial_shared) {
-
-    if (include_biomass) {
-
-      spatial_code <- c(
-        spatial_code,
-
-        '
-# =============================================================================
-# Biomass latent spatial autocorrelation
-# =============================================================================
-
-rho_spatial_biomass ~ dunif(
-  spatial_range_lower,
-  spatial_range_upper
-)
-
-sigma_spatial_biomass ~ T(
-  dnorm(
-    0,
-    spatial_sigma_precision
-  ),
-  0,
-  Inf
-)
-
-for (i in 1:n_spatial) {
-
-  for (j in 1:n_spatial) {
-
-    spatial_covariance_biomass[i, j] <-
-      sigma_spatial_biomass^2 *
-      exp(
-        -distance_matrix[i, j] /
-        rho_spatial_biomass
-      )
-
-  }
-
-}
-
-spatial_effect_biomass[1:n_spatial] ~ dmnorm(
-  mean = spatial_zero_biomass[1:n_spatial],
-  cov = spatial_covariance_biomass[
-    1:n_spatial,
-    1:n_spatial
-  ]
-)
-
-lambda_spatial_biomass ~ dnorm(
-  0,
-  0.001
-)
-'
-      )
-
-
-biomass_spatial_terms <- c(
-  biomass_spatial_terms,
-
-  "lambda_spatial_biomass * spatial_effect_biomass[spatial_id[i]]"
-)
-
-    }
-
-
-  if (include_diversity) {
-
-    spatial_code <- c(
-      spatial_code,
-
-      '
-# =============================================================================
-# Diversity latent spatial autocorrelation
-# =============================================================================
-
-rho_spatial_diversity ~ dunif(
-  spatial_range_lower,
-  spatial_range_upper
-)
-
-sigma_spatial_diversity ~ T(
-  dnorm(
-    0,
-    spatial_sigma_precision
-  ),
-  0,
-  Inf
-)
-
-for (i in 1:n_spatial) {
-
-  for (j in 1:n_spatial) {
-
-    spatial_covariance_diversity[i, j] <-
-      sigma_spatial_diversity^2 *
-      exp(
-        -distance_matrix[i, j] /
-        rho_spatial_diversity
-      )
-
-  }
-
-}
-
-spatial_effect_diversity[1:n_spatial] ~ dmnorm(
-  mean = spatial_zero_diversity[1:n_spatial],
-  cov = spatial_covariance_diversity[
-    1:n_spatial,
-    1:n_spatial
-  ]
-)
-
-lambda_spatial_diversity ~ dnorm(
-  0,
-  0.001
-)
-'
-    )
-
-
-diversity_spatial_terms <- c(
-  diversity_spatial_terms,
-
-  "lambda_spatial_diversity * spatial_effect_diversity[spatial_id[i]]"
-)
-
-  }
-
-  }
-
-  }
-
-
 # ============================================================================
 # 14. Categorical covariates as random effects
 # ============================================================================
@@ -1030,6 +728,28 @@ if (length(categorical_covariates) > 0) {
     cov_clean <- make.names(cov)
 
 
+    if(share_hyperparameters){
+        paste0(
+          '
+# =============================================================================
+# Hyperparameters for: ', cov, '
+# =============================================================================
+
+tau_', cov_clean, ' ~ T(
+  dgamma(
+    1,
+    1
+  ),
+  0.00001,
+  Inf
+)
+
+sigma_', cov_clean, ' <-
+  1 / sqrt(tau_', cov_clean, ')
+'
+   )
+    }
+
     # ------------------------------------------------------------------------
     # Biomass categorical random effect
     # ------------------------------------------------------------------------
@@ -1039,7 +759,26 @@ if (length(categorical_covariates) > 0) {
       random_effect_code <- c(
         random_effect_code,
 
+  if(share_hyperparameters){
         paste0(
+          '
+# =============================================================================
+# Biomass random effect: ', cov, '
+# =============================================================================
+
+for (j in 1:n_', cov_clean, ') {
+
+  ', cov_clean, '_effect_biomass[j] ~ dnorm(
+    0,
+    tau_', cov_clean, '
+  )
+
+} '
+   )
+    
+  } else {
+
+paste0(
           '
 # =============================================================================
 # Biomass random effect: ', cov, '
@@ -1066,9 +805,10 @@ tau_', cov_clean, '_biomass ~ T(
 sigma_', cov_clean, '_biomass <-
   1 / sqrt(tau_', cov_clean, '_biomass)
 '
-        )
+   )
+  }
       )
-
+  
 
 biomass_random_terms <- c(
   biomass_random_terms,
@@ -1081,7 +821,7 @@ biomass_random_terms <- c(
   )
 )
 
-    }
+  }
 
 
   # ------------------------------------------------------------------------
@@ -1093,6 +833,24 @@ biomass_random_terms <- c(
     random_effect_code <- c(
       random_effect_code,
 
+    if(share_hyperparameters) {
+      paste0(
+        '
+# =============================================================================
+# Diversity random effect: ', cov, '
+# =============================================================================
+
+for (j in 1:n_', cov_clean, ') {
+
+  ', cov_clean, '_effect_diversity[j] ~ dnorm(
+    0,
+    tau_', cov_clean, '
+  )
+}
+
+'
+      )
+    } else {
       paste0(
         '
 # =============================================================================
@@ -1121,6 +879,8 @@ sigma_', cov_clean, '_diversity <-
   1 / sqrt(tau_', cov_clean, '_diversity)
 '
       )
+    }
+
     )
 
 
@@ -1148,11 +908,50 @@ diversity_random_terms <- c(
 
 if (random_year) {
 
+  if(share_hyperparameters){
+   
+      '
+# =============================================================================
+# Biomass year random effect hyperameters
+# =============================================================================
+
+tau_year ~ T(
+  dgamma(
+    1,
+    1
+  ),
+  0.0001,
+  Inf
+)
+
+sigma_year <-
+  1 / sqrt(tau_year)
+'
+    
+  }
+
   if (include_biomass) {
 
     random_effect_code <- c(
       random_effect_code,
+      
+    if(share_hyperparameters){
+      '
+# =============================================================================
+# Biomass year random effect
+# =============================================================================
 
+for (j in 1:n_year) {
+
+  year_effect_biomass[j] ~ dnorm(
+    0,
+    tau_year
+  )
+
+}
+'
+      
+    } else {
       '
 # =============================================================================
 # Biomass year random effect
@@ -1179,6 +978,9 @@ tau_year_biomass ~ T(
 sigma_year_biomass <-
   1 / sqrt(tau_year_biomass)
 '
+    } 
+
+
     )
 
 
@@ -1196,7 +998,26 @@ if (include_diversity) {
   random_effect_code <- c(
     random_effect_code,
 
-    '
+if(share_hyperparameters){
+
+      '
+# =============================================================================
+# Diversity year random effect
+# =============================================================================
+
+for (j in 1:n_year) {
+
+  year_effect_diversity[j] ~ dnorm(
+    0,
+    tau_year
+  )
+
+}
+'
+  
+} else {
+
+      '
 # =============================================================================
 # Diversity year random effect
 # =============================================================================
@@ -1222,6 +1043,8 @@ tau_year_diversity ~ T(
 sigma_year_diversity <-
   1 / sqrt(tau_year_diversity)
 '
+  
+}
   )
 
 
@@ -1242,12 +1065,51 @@ diversity_random_terms <- c(
 
 if (random_locality) {
 
+  if(share_hyperparameters){
+       '
+# =============================================================================
+# Locality hyperparameters
+# =============================================================================
+tau_locality ~ T(
+  dgamma(
+    1,
+    1
+  ),
+  0.00001,
+  Inf
+)
+
+sigma_locality <-
+  1 / sqrt(tau_locality)
+'   
+  }
+
   if (include_biomass) {
 
     random_effect_code <- c(
       random_effect_code,
 
-      '
+if(share_hyperparameters){
+
+        '
+# =============================================================================
+# Biomass locality random effect
+# =============================================================================
+
+for (j in 1:n_locality) {
+
+  locality_effect_biomass[j] ~ dnorm(
+    0,
+    tau_locality
+  )
+
+}
+
+'
+  
+} else {
+
+        '
 # =============================================================================
 # Biomass locality random effect
 # =============================================================================
@@ -1273,6 +1135,8 @@ tau_locality_biomass ~ T(
 sigma_locality_biomass <-
   1 / sqrt(tau_locality_biomass)
 '
+
+}
     )
 
 
@@ -1290,7 +1154,25 @@ if (include_diversity) {
   random_effect_code <- c(
     random_effect_code,
 
-    '
+    if(share_hyperparameters){
+
+          '
+# =============================================================================
+# Diversity locality random effect
+# =============================================================================
+
+for (j in 1:n_locality) {
+
+  locality_effect_diversity[j] ~ dnorm(
+    0,
+    tau_locality
+  )
+}
+'
+
+    } else {
+
+          '
 # =============================================================================
 # Diversity locality random effect
 # =============================================================================
@@ -1316,8 +1198,10 @@ tau_locality_diversity ~ T(
 sigma_locality_diversity <-
   1 / sqrt(tau_locality_diversity)
 '
-  )
+    }
 
+
+  )
 
 diversity_random_terms <- c(
   diversity_random_terms,
@@ -1336,11 +1220,47 @@ diversity_random_terms <- c(
 
 if (random_replicate) {
 
+  if(share_hyperparameters){
+          '
+# =============================================================================
+# Replicate hyperameters
+# =============================================================================
+
+tau_replicate ~ T(
+  dgamma(
+    1,
+    1
+  ),
+  0.0001,
+  Inf
+)
+
+sigma_replicate <-
+  1 / sqrt(tau_replicate)
+'
+  }
+
   if (include_biomass) {
 
     random_effect_code <- c(
       random_effect_code,
 
+if(share_hyperparameters){
+      '
+# =============================================================================
+# Biomass replicate random effect
+# =============================================================================
+
+for (j in 1:n_replicate) {
+
+  replicate_effect_biomass[j] ~ dnorm(
+    0,
+    tau_replicate
+  )
+}
+'
+} else {
+  
       '
 # =============================================================================
 # Biomass replicate random effect
@@ -1367,6 +1287,9 @@ tau_replicate_biomass ~ T(
 sigma_replicate_biomass <-
   1 / sqrt(tau_replicate_biomass)
 '
+  
+}
+
     )
 
 
@@ -1384,7 +1307,25 @@ if (include_diversity) {
   random_effect_code <- c(
     random_effect_code,
 
-    '
+    if(share_hyperparameters){
+
+        '
+# =============================================================================
+# Diversity replicate random effect
+# =============================================================================
+
+for (j in 1:n_replicate) {
+
+  replicate_effect_diversity[j] ~ dnorm(
+    0,
+    tau_replicate
+  )
+}
+'
+      
+    } else {
+
+        '
 # =============================================================================
 # Diversity replicate random effect
 # =============================================================================
@@ -1410,6 +1351,9 @@ tau_replicate_diversity ~ T(
 sigma_replicate_diversity <-
   1 / sqrt(tau_replicate_diversity)
 '
+      
+    }
+  
   )
 
 
@@ -1422,7 +1366,6 @@ diversity_random_terms <- c(
 }
 
 }
-
 
 # ============================================================================
 # 18. Temporal effect
@@ -1644,7 +1587,6 @@ biomass_mean_terms <- c(
   "alpha_biomass",
   fixed_effect_biomass,
   biomass_random_terms,
-  biomass_spatial_terms,
   biomass_temporal_term
 )
 
@@ -1667,7 +1609,6 @@ diversity_mean_terms <- c(
   "alpha_diversity",
   fixed_effect_diversity,
   diversity_random_terms,
-  diversity_spatial_terms,
   diversity_temporal_term
 )
 
@@ -1702,10 +1643,10 @@ if (include_biomass) {
 
 for (i in 1:N) {
 
-  biomass[i] ~ dnorm(
+  biomass[i] ~ T(dnorm(
     mu_biomass[i],
     tau_biomass
-  )
+  ), 0, )
 
   mu_biomass[i] <- ',
       biomass_mean_expression,
@@ -1897,7 +1838,6 @@ size_diversity ~ dgamma(
 
 }
 
-
 # ============================================================================
 # 23. Fixed-effect priors
 # ============================================================================
@@ -1906,7 +1846,30 @@ beta_code <- character(0)
 
 if (n_continuous > 0) {
 
-  if (include_biomass) {
+  if(share_fixed_effects){
+
+      beta_code <- c(
+    beta_code,
+
+    '
+# =============================================================================
+# Diversity continuous covariate effects
+# =============================================================================
+
+for (j in 1:p) {
+
+  beta[j] ~ dnorm(
+    0,
+    0.001
+  )
+
+}
+'
+  )
+
+  } else {
+
+      if (include_biomass) {
 
     beta_code <- c(
       beta_code,
@@ -1952,9 +1915,10 @@ for (j in 1:p) {
   )
 
 }
+    
+  }
 
 }
-
 
 # ============================================================================
 # 24. Spatial hyperparameter constants
@@ -2074,11 +2038,6 @@ biomass_diversity_model <- nimbleCode({
   ),
   "\n",
 
-  paste(
-    spatial_code,
-    collapse = "\n"
-  ),
-  "\n",
 
   paste(
     temporal_code,

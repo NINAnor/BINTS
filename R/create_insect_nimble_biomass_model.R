@@ -238,6 +238,8 @@ create_insect_nimble_model <- function(
     biomass_distribution = c("normal", "lognormal"),
     diversity_distribution = c("poisson", "negative_binomial"),
     covariate_types = NULL,
+    share_fixed_effects = FALSE,
+    share_hyperparameters = FALSE,
     random_year = FALSE,
     random_locality = FALSE,
     random_replicate = FALSE,
@@ -369,6 +371,8 @@ create_insect_nimble_model <- function(
     biomass_distribution = biomass_distribution,
     diversity_distribution = diversity_distribution,
     covariate_types = covariate_types,
+    share_fixed_effects = share_fixed_effects,
+    share_hyperparameters = share_hyperparameters,
     random_year = random_year,
     random_locality = random_locality,
     random_replicate = random_replicate,
@@ -394,7 +398,7 @@ create_insect_nimble_model <- function(
     args$temporal_penalty <- NULL
     args$temporal_shared <- FALSE
     args$spatial_effect <- "none"
-    args$spatial_shared <- TRUE
+    args$spatial_shared <- FALSE
   } else if (selected_function_name %in% c(
     "create_insect_temporal_shared_model", "create_insect_temporal_separate_model"
   )) {
