@@ -10,6 +10,8 @@ create_insect_nimble_model(
   biomass_distribution = c("normal", "lognormal"),
   diversity_distribution = c("poisson", "negative_binomial"),
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
   random_year = FALSE,
   random_locality = FALSE,
   random_replicate = FALSE,

@@ -10,6 +10,8 @@ create_insect_baseline_model(
   biomass_distribution = "normal",
   diversity_distribution = "poisson",
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
   random_year = FALSE,
   random_locality = FALSE,
   random_replicate = FALSE,
@@ -52,6 +54,9 @@ covariate names, and values must be `"continuous"` or `"categorical"`.
 If `NULL`, all specified covariates are treated as continuous.
 Every covariate in `modelCovs` must have a corresponding type when
 this argument is supplied.}
+
+\item{share_fixed_effects}{Logical. If `TRUE`, all the fixed effects will
+be shared by both the response variables. Defaults to `FALSE`.}
 
 \item{random_year}{Logical. If `TRUE`, include a year-specific random
 intercept for each response included in the model. Defaults to
@@ -115,6 +120,9 @@ The directory is created recursively if it does not already exist.}
 \item{model_name}{Character string specifying the base name of the
 generated model script, without the `.R` extension. Defaults to
 `"create_insect_nimble_baseline_model"`.}
+
+\item{share_hyperpameters}{Logical. If `TRUE`, all random effect hyperparameters
+will be shared by both response variables. Defauls to `FALSE`.}
 }
 \value{
 Invisibly returns a named list containing:
@@ -227,6 +235,7 @@ baseline_both <- create_insect_baseline_model(
   ),
   random_year = TRUE,
   random_locality = TRUE,
+  share_fixed_effects = FALSE,
   output_dir = "models",
   model_name = "baseline_biomass_diversity"
 )

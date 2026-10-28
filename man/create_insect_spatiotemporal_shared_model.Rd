@@ -10,6 +10,8 @@ create_insect_spatiotemporal_shared_model(
   biomass_distribution = "normal",
   diversity_distribution = "poisson",
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
   random_year = FALSE,
   random_locality = FALSE,
   random_replicate = FALSE,

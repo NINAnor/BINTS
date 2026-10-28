@@ -9,6 +9,8 @@ create_insect_nimble_initial_values(
   modelCovs,
   model_structure = NULL,
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
   response = "biomass",
   biomass_col = "sum_wet_weight",
   diversity_col = NULL,

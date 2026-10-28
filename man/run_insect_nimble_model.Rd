@@ -8,6 +8,8 @@ run_insect_nimble_model(
   modelling_data,
   modelCovs,
   covariate_types = NULL,
+  share_fixed_effects = FALSE,
+  share_hyperparameters = FALSE,
   response = "both",
   biomass_col = "sum_wet_weight",
   diversity_col = "shannon_div",
@@ -18,16 +20,16 @@ run_insect_nimble_model(
   random_year = TRUE,
   random_locality = TRUE,
   random_replicate = TRUE,
-  temporal_effect = "cubic_cyclic",
+  temporal_effect = c("cubic_cyclic", "none", "linear"),
   temporal_shared = TRUE,
   temporal_basis_k = 10,
-  spatial_effect = "none",
+  spatial_effect = c("none", "coordinates", "autocorrelation"),
   spatial_shared = TRUE,
   longitude_col = "longitude",
   latitude_col = "latitude",
   spatial_range_prior = c(1000, 5e+05),
   spatial_sigma_prior = 1,
-  output_dir = temp_dir,
+  output_dir = tempdir(),
   seed = 123,
   run_mcmc = TRUE,
   run_waic = TRUE,
@@ -49,6 +51,12 @@ the model. All specified columns must exist in `modelling_data`.}
 covariate as `"continuous"` or `"categorical"`. Every covariate in
 `modelCovs` must have a corresponding type. If `NULL`, all covariates are
 treated as continuous.}
+
+\item{share_fixed_effects}{Logical; passed to the model-code and
+initial-value helpers. Defaults to `FALSE`.}
+
+\item{share_hyperparameters}{Logical; passed to the model-code and
+initial-value helpers. Defaults to `FALSE`.}
 
 \item{response}{Character string specifying the response to model:
 `"biomass"`, `"diversity"`, or `"both"`. Defaults to `"both"`.}
@@ -88,9 +96,8 @@ effects. Defaults to `TRUE`.}
 or `"cubic_cyclic"`. Defaults to `"cubic_cyclic"`.}
 
 \item{temporal_shared}{Logical; for temporal effects, determines whether
-the temporal process is shared between biomass and diversity. For
-spatiotemporal models, this setting must match `spatial_shared`.
-Defaults to `TRUE`.}
+the temporal process is shared between biomass and diversity. Defaults to
+`TRUE`.}
 
 \item{temporal_basis_k}{Integer specifying the requested basis dimension
 for the cubic cyclic spline. Must be an integer greater than or equal to
@@ -100,9 +107,7 @@ four. Defaults to `10`.}
 `"coordinates"`, or `"autocorrelation"`. Defaults to `"none"`.}
 
 \item{spatial_shared}{Logical; for spatial effects, determines whether the
-spatial structure is shared between the included responses. For
-autocorrelation, a shared latent spatial process is used when `TRUE`;
-separate response-specific processes are used when `FALSE`. Defaults to
+spatial structure is shared between the included responses. Defaults to
 `TRUE`.}
 
 \item{longitude_col}{Name of the column containing longitude coordinates.
@@ -112,9 +117,8 @@ Defaults to `"longitude"`.}
 Defaults to `"latitude"`.}
 
 \item{spatial_range_prior}{Numeric vector of length two defining the lower
-and upper bounds of the spatial range prior, in metres. Both values must
-be finite and positive, with the upper bound greater than the lower
-bound. Defaults to `c(1000, 500000)`.}
+and upper bounds of the spatial range prior, in metres. Defaults to
+`c(1000, 500000)`.}
 
 \item{spatial_sigma_prior}{Positive finite numeric value specifying the
 spatial standard-deviation prior parameter. Defaults to `1`.}
@@ -122,15 +126,18 @@ spatial standard-deviation prior parameter. Defaults to `1`.}
 \item{output_dir}{Directory in which the generated NIMBLE model source file
 is written. Defaults to `temp_dir`.}
 
-\item{seed}{Seed supplied to the initial-value generation function.
-Defaults to `123`.}
+\item{seed}{Integer seed(s) controlling reproducibility. Either a single
+value or a vector of length `nchains`. If a single value is supplied, the
+per-chain seeds are `seed, seed + 1, ..., seed + nchains - 1`. Each chain
+seed is used both to generate that chain's initial values and as the
+R random-number seed at the start of that chain in
+[nimble::runMCMC()]. Defaults to `123`.}
 
 \item{run_mcmc}{Logical; if `TRUE`, configure, compile, and run MCMC after
-compiling the NIMBLE model. If `FALSE`, return the prepared and compiled
-model components without running MCMC. Defaults to `TRUE`.}
+compiling the NIMBLE model. Defaults to `TRUE`.}
 
-\item{run_waic}{Logical; if `TRUE`, enable WAIC calculation when configuring
-MCMC and request WAIC in the sampling output. Defaults to `TRUE`.}
+\item{run_waic}{Logical; if `TRUE`, enable WAIC calculation. Defaults to
+`TRUE`.}
 
 \item{niter}{Total number of MCMC iterations requested. Defaults to `20000`.}
 
@@ -143,24 +150,26 @@ MCMC and request WAIC in the sampling output. Defaults to `TRUE`.}
 }
 \value{
 A named list containing the components used to construct and fit
-  the model. The returned components include:
+  the model, including:
 \describe{
   \item{`model_file`}{Information returned by
-  [create_insect_nimble_model()], including the generated model file path.}
+  [create_insect_nimble_model()].}
   \item{`model_code`}{NIMBLE model code sourced from the generated file.}
   \item{`data`}{Prepared response and predictor data supplied to NIMBLE.}
-  \item{`constants`}{Model constants, including observation counts,
-  grouping indices, and spatial distance information when applicable.}
-  \item{`initial_values`}{Named list of initial parameter values.}
-  \item{`model`}{Constructed NIMBLE model object.}
-  \item{`compiled_model`}{Compiled NIMBLE model object.}
-  \item{`samples`}{When `run_mcmc = TRUE`, the output returned by
-  [nimble::runMCMC()], including posterior samples and requested summary
-  information. Not returned when `run_mcmc = FALSE`.}
-  \item{Additional metadata}{Response and distribution settings, temporal
-  effect configuration, spline basis information, covariate specifications,
-  and spatial model settings. The exact metadata fields depend on whether
-  MCMC is run.}
+  \item{`constants`}{Model constants.}
+  \item{`initial_values`}{List of length `nchains`; element `i` holds the
+  initial values used for chain `i`.}
+  \item{`model`, `compiled_model`}{NIMBLE model objects (returned when
+  `run_mcmc = FALSE`).}
+  \item{`samples`}{When `run_mcmc = TRUE`, the output of
+  [nimble::runMCMC()].}
+  \item{`seed`}{The `seed` argument as supplied.}
+  \item{`chain_seeds`}{Integer vector of the seed used for each chain.}
+  \item{`package_versions`}{Named character vector of versions of the
+  packages used (`NA` if a package is not installed).}
+  \item{`session`}{R version, platform, RNG kind and run timestamp.}
+  \item{Additional metadata}{Response, distribution, temporal, covariate
+  and spatial settings.}
 }
 }
 \description{
@@ -182,7 +191,7 @@ effects, temporal effects, and spatial effects.
 The function carries out the following steps:
 \enumerate{
   \item Validates the response specification, response distributions,
-  covariate types, modelling data, and spatial settings.
+  covariate types, modelling data, spatial settings, seeds and chains.
   \item Extracts the selected response variables and constructs replicate
   indices when a replicate column is supplied.
   \item Constructs the temporal variable from the row means of the columns
@@ -192,37 +201,16 @@ The function carries out the following steps:
   spline basis and penalty matrix using the observed temporal range.
   \item Standardises continuous covariates using their observed means and
   standard deviations.
-  \item Calls [create_insect_nimble_model()] to generate the NIMBLE model
-  source, [create_insect_nimble_data()] to prepare the model data,
-  [create_insect_nimble_constants()] to construct model constants, and
-  [create_insect_nimble_initial_values()] to generate initial values.
-  \item Sources the generated model code, builds the NIMBLE model, and
-  compiles it.
+  \item Calls [create_insect_nimble_model()],
+  [create_insect_nimble_data()], [create_insect_nimble_constants()], and
+  [create_insect_nimble_initial_values()] (once per chain, each with its
+  own seed).
+  \item Sources the generated model code, builds the NIMBLE model (using
+  the first chain's initial values), and compiles it.
   \item If `run_mcmc = TRUE`, configures and compiles the MCMC sampler and
-  runs the requested iterations, returning the sampling output.
+  runs the requested iterations with chain-specific initial values and
+  seeds.
 }
-
-For a cubic cyclic temporal effect, the original spline basis and penalty
-are passed to `create_insect_nimble_model()`, which is responsible for
-constructing the penalised basis used in the NIMBLE model. The temporal
-variable is not standardised before the cyclic spline is constructed,
-because its scale defines the cyclic boundary.
-
-Spatial range parameters are expressed in metres. For spatial
-autocorrelation, the constants helper constructs the distance matrix from
-projected coordinates; the spatial covariance structure is then evaluated
-within the NIMBLE model.
-
-Continuous covariates are standardised before model-data preparation.
-Consequently, coefficient estimates for these covariates correspond to
-changes on the standardised predictor scale.
-
-When `run_mcmc = FALSE`, the returned list contains the generated model
-file information, model code, data, constants, initial values, uncompiled
-and compiled model objects, response and distribution settings, temporal
-information, and spatial configuration. When `run_mcmc = TRUE`, the returned
-list additionally includes the MCMC sampling output and model configuration
-metadata.
 }
 \seealso{
 [create_insect_nimble_model()],
