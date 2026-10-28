@@ -194,7 +194,7 @@ run_insect_nimble_model <- function(
   spatial_sigma_prior = 1,
 
   # Output
-  output_dir = tempdir(),
+  output_dir = temp_dir,
 
   # MCMC
   seed = 123,
@@ -960,6 +960,33 @@ run_insect_nimble_model <- function(
   # ==========================================================
 
   compiled_model <- nimble::compileNimble(nimble_model)
+
+  # ==========================================================
+  # Check that every chain starts from a valid point
+  # ==========================================================
+
+  for (i in seq_len(nchains)) {
+
+    for (nm in names(initial_values[[i]])) {
+      compiled_model[[nm]] <- initial_values[[i]][[nm]]
+    }
+
+    start_logprob <- compiled_model$calculate()
+
+    if (!is.finite(start_logprob)) {
+      stop(
+        "Initial values for chain ", i, " (seed ", chain_seeds[i],
+        ") give a non-finite log-probability (", start_logprob, ").",
+        call. = FALSE
+      )
+    }
+  }
+
+  # Restore chain 1's values in the compiled model
+  for (nm in names(initial_values[[1L]])) {
+    compiled_model[[nm]] <- initial_values[[1L]][[nm]]
+  }
+  compiled_model$calculate()
 
   # ==========================================================
   # Stop here if MCMC is not requested
