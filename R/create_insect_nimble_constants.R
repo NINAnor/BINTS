@@ -1217,7 +1217,7 @@ create_insect_nimble_constants <- function(
         #   separate latent processes for biomass and diversity.
         # ----------------------------------------------------------------------
         
-        if (spatial_shared) {
+       # if (spatial_shared) {
             
             constants[["spatial_zero"]] <-
                 rep(
@@ -1225,7 +1225,7 @@ create_insect_nimble_constants <- function(
                     n_spatial
                 )
             
-        } else {
+      #  } else {
             
             constants[["spatial_zero_biomass"]] <-
                 rep(
@@ -1239,7 +1239,7 @@ create_insect_nimble_constants <- function(
                     n_spatial
                 )
             
-        }
+       # }
         
     }
     

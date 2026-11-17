@@ -1,7 +1,8 @@
 Package: BINTS
 Type: Package
-Title: Bayesian Breeding Bird and Insect Time Series Modelling 
-Version: 0.1.0
+Title: Bayesian Hierarchical Spatio-Temporal Models of Insect Biomass and
+    Species Richness
+Version: 0.2.0
 Authors@R: 
     person(
       given = "Kwaku Peprah",
@@ -9,27 +10,38 @@ Authors@R:
       email = "kwaku.adjei@nina.no",
       role = c("aut", "cre")
     )
-Description: Provides tools for constructing and fitting Bayesian models of
-    insect biomass and diversity using NIMBLE. Supports normal and lognormal
-    biomass likelihoods, and normal, Poisson, and negative binomial diversity
-    likelihoods. Includes continuous covariates, categorical random effects,
-    year, locality, and replicate effects, linear and cubic cyclic temporal
-    effects, and spatial effects based on geographic coordinates or spatial
-    autocorrelation. Provides functions for preparing model data and
-    constants, generating initial values, constructing cyclic spline bases
-    and penalty matrices, and running Markov chain Monte Carlo estimation
-    with optional Widely Applicable Information Criterion calculation.
+Description: Fits Bayesian hierarchical models of insect biomass and species
+    richness, separately or jointly, with NIMBLE. Responses follow a truncated
+    normal distribution with the truncation at zero built into the likelihood
+    (a log-normal is available for biomass). Models combine fixed effects,
+    random year, locality and replicate effects, linear or cyclic temporal
+    effects, spatial effects (a nearest-neighbour Gaussian process or a
+    coordinate spline), and an optional space-time interaction. For joint models
+    effects can be shared as parameters, as latent processes with response
+    specific loadings, or as correlated response-specific effects. The package
+    runs reproducible multi-chain MCMC with recorded seeds, and provides
+    prediction, posterior predictive checks, spatial maps and diagnostic plots.
+    The earlier 'create_insect_*' functions for building and running NIMBLE
+    models, and a helper for cyclic spline bases, are retained.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+Depends:
+    R (>= 4.1.0)
 Imports:
     dplyr,
     sf,
     stats,
     utils,
     mgcv,
-    nimble
+    nimble,
+    ggplot2,
+    coda,
+    parallel
 Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
     devtools,
     roxygen2,
     RPostgreSQL,
@@ -37,7 +49,8 @@ Suggests:
     odbc,
     DBI,
     rpostgis,
-    ggplot2,
     Norimon,
     NinaR
+VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.1
+Config/testthat/edition: 3
