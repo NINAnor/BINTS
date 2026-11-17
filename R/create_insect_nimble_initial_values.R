@@ -970,7 +970,7 @@ create_insect_nimble_initial_values <- function(
       biomass_sd <= 0
     ) {
 
-      biomass_sd <- 1
+      biomass_sd <- runif(1, 0.8, 1.5)
 
     }
 
@@ -1078,7 +1078,7 @@ create_insect_nimble_initial_values <- function(
 
       if (mean_diversity <= 0) {
 
-        mean_diversity <- 0.1
+        mean_diversity <- runif(1, 0.1, 0.7)
 
       }
 
@@ -1167,9 +1167,9 @@ create_insect_nimble_initial_values <- function(
   # ==========================================================================
 
   if (length(continuous_covariates) > 0) {
-    initial_values[["beta"]] <- rep(
+    initial_values[["beta"]] <- rnorm(length(continuous_covariates),
       0,
-      length(continuous_covariates)
+      1
     )
   }
 
@@ -1200,8 +1200,8 @@ create_insect_nimble_initial_values <- function(
 
       n_levels <- nlevels(factor(cov_values))
       cov_clean <- make.names(cov)
-      initial_values[[paste0(cov_clean, "_effect")]] <- rep(0, n_levels)
-      initial_values[[paste0("tau_", cov_clean)]] <- 1
+      initial_values[[paste0(cov_clean, "_effect")]] <- rnorm(n_levels, 0, 1)
+      initial_values[[paste0("tau_", cov_clean)]] <- runif(1, 0.9, 1.5)
     }
   }
 
@@ -1223,11 +1223,11 @@ create_insect_nimble_initial_values <- function(
       stop("Missing values found in year column.", call. = FALSE)
     }
 
-    initial_values[["year_effect"]] <- rep(
+    initial_values[["year_effect"]] <- rnorm( dplyr::n_distinct(year_values),
       0,
-      dplyr::n_distinct(year_values)
+     1
     )
-    initial_values[["tau_year"]] <- 1
+    initial_values[["tau_year"]] <- runif(1, 0.9, 1.5)
   }
 
 
@@ -1248,11 +1248,11 @@ create_insect_nimble_initial_values <- function(
       stop("Missing values found in locality column.", call. = FALSE)
     }
 
-    initial_values[["locality_effect"]] <- rep(
+    initial_values[["locality_effect"]] <- rnorm(dplyr::n_distinct(locality_values),
       0,
-      dplyr::n_distinct(locality_values)
+      1
     )
-    initial_values[["tau_locality"]] <- 1
+    initial_values[["tau_locality"]] <- runif(1, 0.9, 1.5)
   }
 
 
@@ -1403,8 +1403,8 @@ create_insect_nimble_initial_values <- function(
     # Shared replicate effect
     # ----------------------------------------------------------------------
 
-    initial_values[["replicate_effect"]] <- rep(0, n_replicate)
-    initial_values[["tau_replicate"]] <- 1
+    initial_values[["replicate_effect"]] <- rnorm(n_replicate, 0, 1)
+    initial_values[["tau_replicate"]] <- runif(1, 0.9, 1.5)
 
   }
 
@@ -1438,12 +1438,12 @@ create_insect_nimble_initial_values <- function(
 
     if (temporal_effect == "linear") {
       if (include_biomass) {
-        initial_values[["beta_time_biomass"]] <- 0
+        initial_values[["beta_time_biomass"]] <- rnorm(1)
       }
       if (include_diversity) {
-        initial_values[["beta_time_diversity"]] <- 0
+        initial_values[["beta_time_diversity"]] <- rnorm(1)
       }
-      initial_values[["beta_time"]] <- 0
+      initial_values[["beta_time"]] <- rnorm(1)
 
     }
 
@@ -1485,32 +1485,24 @@ create_insect_nimble_initial_values <- function(
       }
 
       if (isTRUE(temporal_shared)) {
-        initial_values[["beta_time_shared"]] <- rep(
-          0,
-          n_temporal_basis
-        )
-        initial_values[["temporal_tau_shared"]] <- 1
+        initial_values[["beta_time_shared"]] <- rnorm(n_temporal_basis)
+        initial_values[["temporal_tau_shared"]] <- runif(1, 0.9, 1.5)
 
         # When both responses are included, the model estimates a
         # diversity-specific loading; biomass defines the reference
         # scale with its loading fixed to one.
         if (include_biomass && include_diversity) {
-          initial_values[["lambda_time_diversity"]] <- 1
+          initial_values[["lambda_time_diversity"]] <- runif(1, 0.9, 1.2)
         }
       } else {
         if (include_biomass) {
-          initial_values[["beta_time_biomass"]] <- rep(
-            0,
-            n_temporal_basis
-          )
-          initial_values[["temporal_tau_biomass"]] <- 1
+          initial_values[["beta_time_biomass"]] <- rnorm(n_temporal_basis)
+            
+          initial_values[["temporal_tau_biomass"]] <- runif(1, 0.9, 1.5)
         }
         if (include_diversity) {
-          initial_values[["beta_time_diversity"]] <- rep(
-            0,
-            n_temporal_basis
-          )
-          initial_values[["temporal_tau_diversity"]] <- 1
+          initial_values[["beta_time_diversity"]] <- rnorm(n_temporal_basis)
+          initial_values[["temporal_tau_diversity"]] <- runif(1, 0.9, 1.5)
         }
       }
     }
@@ -1522,10 +1514,10 @@ create_insect_nimble_initial_values <- function(
   # ==========================================================================
 
   if (spatial_effect == "coordinates") {
-    initial_values[["beta_longitude_spatial"]] <- 0
-    initial_values[["beta_latitude_spatial"]] <- 0
-    initial_values[["beta_longitude_spatial_squared"]] <- 0
-    initial_values[["beta_latitude_spatial_squared"]] <- 0
+    initial_values[["beta_longitude_spatial"]] <- rnorm(1)
+    initial_values[["beta_latitude_spatial"]] <- rnorm(1)
+    initial_values[["beta_longitude_spatial_squared"]] <- rnorm(1)
+    initial_values[["beta_latitude_spatial_squared"]] <- rnorm(1)
   }
 
   if (spatial_effect == "autocorrelation") {
@@ -1553,28 +1545,28 @@ create_insect_nimble_initial_values <- function(
     }
 
     if (isTRUE(spatial_shared)) {
-      initial_values[["spatial_effect"]] <- rep(0, n_spatial)
-      initial_values[["rho_spatial"]] <- mean(spatial_range_prior)
+      initial_values[["spatial_effect"]] <- rnorm(n_spatial)
+      initial_values[["rho_spatial"]] <- rnorm(1, mean(spatial_range_prior), 0.5)
       initial_values[["sigma_spatial"]] <- max(0.5, spatial_sigma_prior)
 
       # The spatiotemporal shared builder identifies biomass loading as 1
       # and estimates a diversity loading for the shared spatial field.
       if (model_structure == "spatiotemporal_shared" &&
           include_biomass && include_diversity) {
-        initial_values[["lambda_spatial_diversity"]] <- 1
+        initial_values[["lambda_spatial_diversity"]] <- runif(1, 0.9, 1.2)
       }
     } else {
       if (include_biomass) {
-        initial_values[["spatial_effect_biomass"]] <- rep(0, n_spatial)
-        initial_values[["rho_spatial_biomass"]] <- mean(spatial_range_prior)
+        initial_values[["spatial_effect_biomass"]] <- rnorm(n_spatial)
+        initial_values[["rho_spatial_biomass"]] <- rnorm(1, mean(spatial_range_prior), 0.5)
         initial_values[["sigma_spatial_biomass"]] <- max(0.5, spatial_sigma_prior)
-        initial_values[["lambda_spatial_biomass"]] <- 0
+        initial_values[["lambda_spatial_biomass"]] <- runif(1, 0.9, 1.2)
       }
       if (include_diversity) {
-        initial_values[["spatial_effect_diversity"]] <- rep(0, n_spatial)
-        initial_values[["rho_spatial_diversity"]] <- mean(spatial_range_prior)
+        initial_values[["spatial_effect_diversity"]] <- rnorm(n_spatial)
+        initial_values[["rho_spatial_diversity"]] <- rnorm(1, mean(spatial_range_prior), 0.5)
         initial_values[["sigma_spatial_diversity"]] <- max(0.5, spatial_sigma_prior)
-        initial_values[["lambda_spatial_diversity"]] <- 0
+        initial_values[["lambda_spatial_diversity"]] <- runif(1, 0.9, 1.2)
       }
     }
   }
@@ -1647,7 +1639,7 @@ create_insect_nimble_initial_values <- function(
       "spatial_effect" %in% names(initial_values) &&
       include_biomass && include_diversity &&
       !("lambda_spatial_diversity" %in% names(initial_values))) {
-    initial_values$lambda_spatial_diversity <- 1
+    initial_values$lambda_spatial_diversity <- runif(1, 0.9, 1.2)
   }
 
   # ==========================================================================

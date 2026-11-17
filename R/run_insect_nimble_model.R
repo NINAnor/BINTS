@@ -953,6 +953,26 @@ run_insect_nimble_model <- function(
     calculate = FALSE
   )
 
+  # Drop initial values for variables that are not in the model,
+  # so they are not passed to the compiled model or runMCMC()
+  model_vars <- nimble_model$getVarNames()
+
+  unused_inits <- setdiff(
+    unique(unlist(lapply(initial_values, names))),
+    model_vars
+  )
+
+  if (length(unused_inits) > 0) {
+    message(
+      "Ignoring initial values for variables not in the model: ",
+      paste(unused_inits, collapse = ", ")
+    )
+    initial_values <- lapply(
+      initial_values,
+      function(iv) iv[intersect(names(iv), model_vars)]
+    )
+  }
+
   nimble_model$initializeInfo()
 
   # ==========================================================
@@ -976,7 +996,9 @@ run_insect_nimble_model <- function(
     if (!is.finite(start_logprob)) {
       stop(
         "Initial values for chain ", i, " (seed ", chain_seeds[i],
-        ") give a non-finite log-probability (", start_logprob, ").",
+        ") give a non-finite log-probability (", start_logprob, "). ",
+        "NA usually means a parameter has no initial value; ",
+        "-Inf means a value lies outside its prior's support.",
         call. = FALSE
       )
     }
@@ -1062,7 +1084,7 @@ run_insect_nimble_model <- function(
   # ==========================================================
   # Return everything
   # ==========================================================
-return(
+
   list(
     model_file = model_file,
     model_code = model_code,
@@ -1098,5 +1120,4 @@ return(
     package_versions = package_versions,
     session = session
   )
-)
 }

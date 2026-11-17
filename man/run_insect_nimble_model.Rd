@@ -29,7 +29,7 @@ run_insect_nimble_model(
   latitude_col = "latitude",
   spatial_range_prior = c(1000, 5e+05),
   spatial_sigma_prior = 1,
-  output_dir = tempdir(),
+  output_dir = temp_dir,
   seed = 123,
   run_mcmc = TRUE,
   run_waic = TRUE,

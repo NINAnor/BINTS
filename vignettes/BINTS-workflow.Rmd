@@ -1,0 +1,316 @@
+---
+title: "Spatio-temporal models of insect biomass and species richness"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Spatio-temporal models of insect biomass and species richness}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+# Fitting compiles C++ code through NIMBLE and takes a few minutes, so the
+# chunks are only evaluated when explicitly requested
+# (Sys.setenv(NOT_CRAN = "true") or BINTS_VIGNETTE=true) and NIMBLE is installed.
+run <- requireNamespace("nimble", quietly = TRUE) &&
+  (identical(Sys.getenv("NOT_CRAN"), "true") || nzchar(Sys.getenv("BINTS_VIGNETTE")))
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", eval = run,
+                      fig.width = 7, fig.height = 4.5, message = FALSE)
+```
+
+```{r, eval = TRUE, echo = FALSE}
+if (!run) {
+  cat("*The code in this vignette is not evaluated in this build. Set",
+      "`NOT_CRAN=true` and rebuild to run it.*")
+}
+```
+
+## Overview
+
+BINTS fits Bayesian hierarchical models of insect **biomass** and **species
+richness**, separately or jointly, with NIMBLE. This vignette follows one
+analysis from start to finish on simulated data:
+
+1. data requirements and the model,
+2. fitting a joint spatio-temporal model,
+3. convergence and posterior predictive checks,
+4. predictions, including new years and a spatial grid,
+5. maps and diagnostic plots.
+
+```{r library}
+library(BINTS)
+library(ggplot2)
+```
+
+## Data
+
+`fit_model()` expects one row per sampling event. The default column names
+follow the BITS monitoring data (see `bm_default_columns()`).
+
+```{r columns, eval = TRUE}
+unlist(bm_default_columns())
+```
+
+| Role | Default column | Notes |
+|:-----|:---------------|:------|
+| biomass, richness | `sum_wet_weight`, `no_species` | numeric, non-negative |
+| year | `year` | numeric if a linear trend is used |
+| locality | `locality` | one coordinate pair per locality |
+| replication | `sampling_name` | the trailing number (`...-03` gives 3) is the sampling occasion |
+| season | `start_date_julian` | day of year, used by the cyclic effect |
+| coordinates | `longitude`, `latitude` | degrees, or projected (see `spatial_options`) |
+
+If your columns are named differently, modify the list and pass it as
+`columns =`; coordinates can also be given with `coordinates = c("x", "y")`.
+Covariates are standardised internally. Rows with missing values in any model
+variable are dropped with a message.
+
+`simulate_bm_data()` generates data with known parameters, which we use here.
+Biomass has a linear trend and a smooth spatial surface; richness responds to the
+same surface, scaled up.
+
+```{r simulate}
+sim <- simulate_bm_data(
+  n_year = 4, n_locality = 20, n_rep = 2, seed = 2026,
+  spatial = "coordinates", spatial_sd = c(biomass = 5, richness = 50),
+  trend = c(biomass = 1, richness = 15),
+  loadings = c(spatial = 10)  # richness field = 10 x the biomass field
+)
+head(sim)
+```
+
+## The model
+
+For response $r$ and observation $i$ in year $t$, locality $l$ and replicate $k$,
+
+$$y_{ri} \sim \text{TruncNormal}(\mu_{ri}, \sigma_r^2; 0, \infty), \qquad
+\mu_{ri} = \beta_{0r} + x_i^\top\beta_r + f_r(\text{time}) + s_r(\text{space}) +
+u^{year}_{rt} + u^{locality}_{rl} + u^{rep}_{rk}.$$
+
+* The **truncation at zero is in the likelihood**, not applied afterwards, so
+  fitted and predicted values cannot be negative. The parameters $\mu$ and
+  $\sigma$ describe the *untruncated* normal; the mean of the response is
+  $\mu + \sigma\,\phi(\mu/\sigma)/\Phi(\mu/\sigma)$, which `predict()` returns
+  by default.
+* Richness is a count, which the truncated normal ignores. It is reasonable
+  for large counts; the posterior predictive check shows where it fails.
+* **Temporal effects.** `"linear"` adds a trend per year; `"cyclic"` adds a
+  seasonal cyclic spline. The year random effect captures unstructured
+  year-to-year variation *around* the trend. With few years the trend is weakly
+  identified because the year effects can absorb it.
+* **Spatial effects.** `"autocorrelation"` is a nearest-neighbour Gaussian
+  process (assumes stationarity and an exponential correlation; predicts at new
+  locations by conditioning on the nearest sampled ones); `"coordinates"` is a
+  thin-plate spline of the coordinates (assumes a smooth surface; do not
+  extrapolate). Both are defined at localities, so each locality needs one
+  coordinate pair.
+* **Space-time interaction.** `spatiotemporal_interaction = TRUE` adds a
+  spatially varying slope (linear) or seasonal amplitude (cyclic).
+* **Joint models.** Three different ideas can be combined effect by effect:
+  *sharing a parameter* (both responses use the same value), *sharing a
+  latent process* (the second response gets $\lambda\times$ the reference
+  effect, with a free loading $\lambda$) and *correlated response-specific
+  effects* (own effects, with correlation $\rho$). See `?fit_model`.
+
+## Fitting
+
+We fit a joint model for both responses with two covariates, a linear trend, a
+coordinate spline, and year and locality random effects. The spatial surface is
+shared between the responses through a loading.
+
+```{r fit}
+fit <- fit_model(
+  sim,
+  responses = c("biomass", "richness"),
+  fixed_effects = c("x1", "x2"),
+  random_effects = c("year", "locality"),
+  temporal_effect = "linear",
+  spatial_effect = "coordinates",
+  shared_spatial_effect = TRUE,
+  n_chains = 2, n_iter = 2000, n_burnin = 1000, n_thin = 2,
+  seed = 2026, parallel = FALSE
+)
+fit
+```
+
+The defaults (`n_chains = 4`, `n_iter = 50000`, `n_burnin = 25000`,
+`n_thin = 10`) are for real analyses; `parallel = TRUE` runs chains on separate
+processes. A random master `seed` is generated and recorded if you do not give
+one. Every chain gets a unique seed, saved in the fit:
+
+```{r seeds}
+fit$seeds
+```
+
+Refitting with the same data, specification and `seed` (or `chain_seeds`)
+reproduces the samples exactly, in parallel or not.
+
+### Parameters and convergence
+
+```{r summary}
+summary(fit)
+```
+
+`rhat` and `ess` are computed for every monitored parameter and warnings are
+issued if R-hat exceeds 1.05 or the effective sample size is below 400. The
+loading `lambda_sp_richness` is the factor by which richness responds to the
+spatial surface relative to biomass (the simulation used 10). Individual random
+effect levels and spline coefficients are hidden unless
+`summary(fit, random_levels = TRUE)`.
+
+## Posterior predictive checks
+
+`posterior_predictive_check()` replicates the data from the posterior predictive
+distribution with the **same truncated likelihood** and compares discrepancy
+statistics of the replicates with the observed ones.
+
+```{r ppc}
+ppc <- posterior_predictive_check(fit, n_draws = 500, by = "year", seed = 1)
+ppc
+```
+
+Posterior predictive p-values close to 0 or 1 (flagged `extreme`) point to
+features the model does not reproduce, for example exact zeros
+(`prop_zero`), which a truncated normal cannot generate.
+
+```{r ppc-plots, fig.height = 3.5}
+ppc$plots$density
+ppc$plots$statistics
+```
+
+Replicates are *posterior predictive observations*, including observation
+noise. They are different from the posterior of the **expected response**,
+which has no observation noise.
+
+## Prediction
+
+`predict()` returns posterior summaries (`mean`, `median`, `sd`, `lower`,
+`upper`) in long format. `type` selects what is predicted:
+
+| `type` | quantity |
+|:-------|:---------|
+| `"expected"` (default) | mean of the truncated distribution, always positive |
+| `"location"` | $\mu$, the location of the *untruncated* normal (can be negative) |
+| `"predictive"` | draws of a new observation, never negative |
+
+```{r predict}
+head(predict(fit, n_draws = 200), 3)
+```
+
+### New years and random effects
+
+`random` controls the random effects: `"conditional"` uses the estimated effects
+of known levels, `"marginal"` integrates over them (population level), and
+`"zero"` sets them to zero. Levels that were not in the fitting data (for
+example a future year) are drawn from their `Normal(0, sd)` distribution, which
+carries the extra uncertainty, unless `new_levels = "zero"` or `"error"`.
+
+```{r new-year}
+nd <- data.frame(year = c(2024, 2027), x1 = 0, x2 = 0,
+                 longitude = 10, latitude = 63)
+predict(fit, nd, responses = "biomass", random = c(locality = "marginal"),
+        n_draws = 300, seed = 1)
+```
+
+The linear trend is extrapolated to 2027, and its uncertainty grows with the
+distance from the data.
+
+### A spatial grid
+
+Prediction is the expensive step on a fine grid, so it is separate from
+plotting: compute the predictions once, then draw as many maps as needed.
+
+```{r grid}
+bb <- sf::st_bbox(c(xmin = 5, xmax = 15, ymin = 58, ymax = 68), crs = 4326)
+cells <- sf::st_make_grid(sf::st_as_sfc(bb), n = c(15, 15))
+grid <- do.call(rbind, lapply(c(2022, 2024), function(y) {
+  sf::st_sf(year = y, x1 = 0, x2 = 0, geometry = cells)
+}))
+pred <- predict(fit, grid, random = c(locality = "marginal"), n_draws = 200,
+                seed = 2)
+```
+
+```{r map, fig.width = 7, fig.height = 3.8}
+border <- sf::st_as_sfc(bb)
+plot_spatial_predictions(fit, pred, "biomass", boundary = border)
+plot_spatial_predictions(fit, pred, "biomass", uncertainty = "width",
+                         boundary = border)
+```
+
+The map shows the posterior median of expected biomass; the second map shows
+the width of its 95% credible interval. `crs =` sets a display projection and
+`facet_by = "response"` puts responses side by side (use `scale = "relative"`
+because biomass and richness differ in scale). The result is an ordinary
+ggplot, so it can be customised with `+`.
+
+For polygons the grid cell is mapped; for point predictions (a data frame
+with coordinates) coloured squares are drawn. Predictions at locations outside
+the sampled area should be treated with caution, particularly for the
+coordinate spline.
+
+## Diagnostic plots
+
+```{r obs-pred, fig.height = 4}
+plot_observed_predicted(fit, c("biomass", "richness"), interval = TRUE)
+```
+
+Points should scatter around the 1:1 line; RMSE and MAE are shown in each
+panel. `facet_by = "year"` or `"locality"` splits the panels.
+
+```{r resid, fig.height = 5}
+plot_residuals(fit, c("longitude", "latitude", "x1"), c("biomass", "richness"))
+```
+
+Residuals are observed minus predicted; `type = "standardised"` and
+`type = "posterior_predictive"` give scaled versions (approximately standard
+normal when the model fits). A trend or pattern against a covariate, or against
+the coordinates, suggests a term is missing or mis-specified; the zero line
+and the smooth should agree when it is not.
+
+```{r resp-cov, fig.height = 5}
+plot_response_covariates(fit, "x1", c("biomass", "richness"), effect = "marginal")
+```
+
+The *Observed* and *Predicted* panels share the y-axis. The predicted panel
+shows **fitted values at the observed covariate values**, that is, with
+everything else as observed, so they scatter. The orange curve is a
+different thing: the **average covariate effect** from the model, obtained by
+setting the covariate to a grid of values for the observed rows and averaging
+the predictions. `effect = "conditional"` keeps the estimated random effects;
+`"marginal"` integrates over them.
+
+## Using your own data
+
+```{r own-data, eval = FALSE}
+# modelling_data has year, locality, sampling_name, sum_wet_weight, no_species,
+# longitude, latitude, start_date_julian and climate covariates
+fit <- fit_model(
+  modelling_data,
+  responses = c("biomass", "richness"),
+  fixed_effects = c("mean_temp", "mean_precip"),
+  random_effects = c("year", "locality", "replication"),
+  temporal_effect = "cyclic",        # seasonal curve of start_date_julian
+  spatial_effect = "autocorrelation",
+  n_chains = 4, n_iter = 50000, n_burnin = 25000, n_thin = 10,
+  seed = 1, parallel = TRUE
+)
+```
+
+Points to check with real data:
+
+* `sum_wet_weight` contains zeros, which the log-normal family cannot take
+  (`family = c(biomass = "lognormal")` stops with a message). The truncated normal
+  accepts them but cannot generate exact zeros; the posterior predictive check
+  reports this through `prop_zero`.
+* A cyclic seasonal effect and a replication effect can be partly confounded
+  when replicates are sampling occasions.
+* The nearest-neighbour Gaussian process is comfortable up to a few hundred to
+  about a thousand localities.
+* Prediction grids need every covariate used by the model (for example climate
+  values for each cell and year) as columns of the prediction data.
+
+## Earlier functions
+
+The `create_insect_*()` functions, `select_insect_module()`,
+`run_insect_nimble_model()` and `prepare_cubic_cyclic_temporal_spline()` from
+earlier versions are unchanged. `fit_model()` is a separate, self-contained
+interface and does not use them.
