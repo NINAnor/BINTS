@@ -11,9 +11,10 @@ Authors@R:
       role = c("aut", "cre")
     )
 Description: Fits Bayesian hierarchical models of insect biomass and species
-    richness, separately or jointly, with NIMBLE. Responses follow a truncated
+    richness, separately or jointly, with NIMBLE. Biomass follows a truncated
     normal distribution with the truncation at zero built into the likelihood
-    (a log-normal is available for biomass). Models combine fixed effects,
+    (a log-normal is available), and richness a truncated normal, Poisson or
+    negative binomial distribution. Models combine fixed effects,
     random year, locality and replicate effects, linear or cyclic temporal
     effects, spatial effects (a nearest-neighbour Gaussian process or a
     coordinate spline), and an optional space-time interaction. For joint models

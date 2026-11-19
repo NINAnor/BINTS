@@ -43,9 +43,9 @@ The truncation at zero is part of the likelihood, so predictions are never
 negative. \code{mu} and \code{sigma} are the location and scale of the \emph{untruncated}
 normal, not the mean and sd of the response; \code{\link[=predict.bm_fit]{predict.bm_fit()}} returns the
 mean of the truncated distribution (the \emph{expected response}). Richness is a
-count: the truncated normal ignores its discreteness and is adequate for
-large counts. The family registry is designed so that count families can be
-added.
+count: the truncated normal ignores its discreteness and is adequate only for
+large counts, so for count data use \code{family = c(biomass = "truncnorm", richness = "negbinomial")} (or \code{"poisson"}). Biomass may alternatively be
+\code{"lognormal"}. With count families the linear predictor is on the log scale.
 }
 
 \section{Main functions}{

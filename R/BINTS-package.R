@@ -33,9 +33,10 @@
 #' negative. `mu` and `sigma` are the location and scale of the *untruncated*
 #' normal, not the mean and sd of the response; [predict.bm_fit()] returns the
 #' mean of the truncated distribution (the *expected response*). Richness is a
-#' count: the truncated normal ignores its discreteness and is adequate for
-#' large counts. The family registry is designed so that count families can be
-#' added.
+#' count: the truncated normal ignores its discreteness and is adequate only for
+#' large counts, so for count data use `family = c(biomass = "truncnorm",
+#' richness = "negbinomial")` (or `"poisson"`). Biomass may alternatively be
+#' `"lognormal"`. With count families the linear predictor is on the log scale.
 #'
 #' @section Main functions:
 #' | Task | Functions |
