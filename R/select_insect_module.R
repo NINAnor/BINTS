@@ -286,8 +286,8 @@ select_insect_module <- function(
 
   config <- list(
     random_year = TRUE,
-    random_locality = TRUE,
-    random_replicate = TRUE,
+    random_locality = FALSE,
+    random_replicate = FALSE,
     temporal_effect = "none",
     temporal_shared = FALSE,
     temporal_basis_k = temporal_basis_k,
