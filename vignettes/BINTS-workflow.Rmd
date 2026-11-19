@@ -92,7 +92,9 @@ u^{year}_{rt} + u^{locality}_{rl} + u^{rep}_{rk}.$$
   $\mu + \sigma\,\phi(\mu/\sigma)/\Phi(\mu/\sigma)$, which `predict()` returns
   by default.
 * Richness is a count, which the truncated normal ignores. It is reasonable
-  for large counts; the posterior predictive check shows where it fails.
+  for large counts; the posterior predictive check shows where it fails. For
+  count data prefer `family = c(biomass = "truncnorm", richness = "negbinomial")`
+  (or `"poisson"`), which models richness on the log scale.
 * **Temporal effects.** `"linear"` adds a trend per year; `"cyclic"` adds a
   seasonal cyclic spline. The year random effect captures unstructured
   year-to-year variation *around* the trend. With few years the trend is weakly
